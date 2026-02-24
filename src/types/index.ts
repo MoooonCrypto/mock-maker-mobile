@@ -1,0 +1,62 @@
+export interface Project {
+  id: string;
+  name: string;
+  thumbnail?: string;
+  createdAt: number;
+  updatedAt: number;
+  layers: Layer[];
+  background: Background;
+  deviceFrame?: DeviceFrame;
+  canvasSize: { width: number; height: number };
+}
+
+export interface Layer {
+  id: string;
+  type: 'image' | 'video' | 'text';
+  uri: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  rotation: number;
+  opacity: number;
+  cornerRadius: number;
+  shadow: ShadowConfig;
+  stroke: StrokeConfig;
+  zIndex: number;
+}
+
+export interface ShadowConfig {
+  enabled: boolean;
+  color: string;
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+  opacity: number;
+}
+
+export interface StrokeConfig {
+  enabled: boolean;
+  color: string;
+  width: number;
+}
+
+export interface DeviceFrame {
+  deviceId: string;
+  category: 'iphone' | 'ipad' | 'mac' | 'windows' | 'android' | 'watch';
+  name: string;
+  screenSize: { width: number; height: number };
+  frameImageUri: string;
+  screenOffset: { x: number; y: number };
+}
+
+export interface Background {
+  type: 'solid' | 'gradient' | 'image';
+  color?: string;
+  gradient?: { colors: string[]; angle: number };
+  imageUri?: string;
+}
+
+export interface ExportSettings {
+  format: 'png' | 'jpg';
+  quality: 'standard' | 'high';
+  scale: number;
+}

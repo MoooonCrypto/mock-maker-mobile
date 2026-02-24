@@ -1,30 +1,57 @@
 {
   "expo": {
-    "name": "mock-maker-mobile",
+    "name": "MockMaker",
     "slug": "mock-maker-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "scheme": "mockmaker",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#2b8cee"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mockmaker.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+        "NSCameraUsageDescription": "カメラへのアクセスは使用しません。"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#2b8cee"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.mockmaker.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-dev-client",
+      "expo-video",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+          "savePhotosPermission": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "モックアップ用の画像・動画を選択するために使用します。"
+        }
+      ]
+    ]
   }
 }
