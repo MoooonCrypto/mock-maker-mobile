@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSharedValue } from 'react-native-reanimated';
 import { View, Text, TouchableOpacity, Alert, TextInput, Modal, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,6 +13,7 @@ import { Toolbar } from '@/components/editor/Toolbar';
 import { BackgroundPicker } from '@/components/editor/BackgroundPicker';
 import { ScreenshotEditor } from '@/components/editor/ScreenshotEditor';
 import { LayerPanel } from '@/components/editor/LayerPanel';
+import { TextEditPanel } from '@/components/editor/TextEditPanel';
 import { colors } from '@/constants/theme';
 
 export default function EditorScreen() {
@@ -25,8 +27,17 @@ export default function EditorScreen() {
     sessionName,
     addLayer,
     activeTool,
+    layers,
+    selectedLayerId,
     reset,
   } = useEditorStore();
+
+  const selectedLayer = layers.find((l) => l.id === selectedLayerId);
+  const selectedIsText = selectedLayer?.type === 'text';
+
+  const dragOffsetX = useSharedValue(0);
+  const dragOffsetY = useSharedValue(0);
+  const pinchScale  = useSharedValue(1);
 
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textInput, setTextInput] = useState('');
@@ -109,8 +120,8 @@ export default function EditorScreen() {
 
       {/* Canvas area with gesture controls and video overlay */}
       <View style={{ width: canvasWidth, height: canvasHeight }}>
-        <GestureCanvas>
-          <Canvas />
+        <GestureCanvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale}>
+          <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} />
         </GestureCanvas>
         <VideoOverlay />
       </View>
@@ -119,6 +130,7 @@ export default function EditorScreen() {
       {activeTool === 'background' && <BackgroundPicker />}
       {activeTool === 'canvas' && <ScreenshotEditor />}
       {activeTool === 'layers' && <LayerPanel />}
+      {selectedIsText && activeTool === 'select' && <TextEditPanel />}
       {activeTool === 'text' && (
         <View className="bg-white border-t border-gray-200 px-4 py-3">
           <Text className="text-sm font-semibold text-gray-500 mb-3">テキスト</Text>

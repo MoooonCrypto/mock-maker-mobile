@@ -100,28 +100,10 @@ export const devices: DeviceFrame[] = [
     frameImageUri: '',
     screenOffset: { x: 0, y: 0 },
   },
-  // Windows
-  {
-    deviceId: 'surface-pro',
-    category: 'windows',
-    name: 'Surface Pro',
-    screenSize: { width: 1368, height: 912 },
-    frameImageUri: '',
-    screenOffset: { x: 0, y: 0 },
-  },
-  {
-    deviceId: 'surface-laptop',
-    category: 'windows',
-    name: 'Surface Laptop',
-    screenSize: { width: 1536, height: 1024 },
-    frameImageUri: '',
-    screenOffset: { x: 0, y: 0 },
-  },
 ];
 
 export const deviceCategories = [
   { key: 'iphone' as const, label: 'iPhone' },
   { key: 'ipad' as const, label: 'iPad' },
   { key: 'mac' as const, label: 'Mac' },
-  { key: 'windows' as const, label: 'Windows' },
 ] as const;

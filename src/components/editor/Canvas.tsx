@@ -14,26 +14,38 @@ import {
   Text as SkiaText,
   useFont,
   Group,
-  Skia,
 } from '@shopify/react-native-skia';
+import { useDerivedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
+import {
+  NotoSansJP_400Regular,
+  NotoSansJP_700Bold,
+  NotoSansJP_900Black,
+} from '@expo-google-fonts/noto-sans-jp';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { Layer, DeviceFrame } from '@/types';
-import { colors } from '@/constants/theme';
 
-export function Canvas() {
+// ─── Canvas (public) ────────────────────────────────────────────────────────
+
+interface CanvasProps {
+  dragOffsetX: SharedValue<number>;
+  dragOffsetY: SharedValue<number>;
+  pinchScale:  SharedValue<number>;
+}
+
+export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const canvasWidth = screenWidth;
+  const canvasWidth  = screenWidth;
   const canvasHeight = screenWidth * 1.5;
 
-  const canvasRef = useCanvasRef();
-  const setCanvasRef = useEditorStore((s) => s.setCanvasRef);
-  const background = useEditorStore((s) => s.background);
-  const layers = useEditorStore((s) => s.layers);
-  const deviceFrame = useEditorStore((s) => s.deviceFrame);
+  const canvasRef      = useCanvasRef();
+  const setCanvasRef   = useEditorStore((s) => s.setCanvasRef);
+  const background     = useEditorStore((s) => s.background);
+  const layers         = useEditorStore((s) => s.layers);
+  const deviceFrame    = useEditorStore((s) => s.deviceFrame);
+  const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
 
-  useEffect(() => {
-    setCanvasRef(canvasRef);
-  }, [canvasRef]);
+  useEffect(() => { setCanvasRef(canvasRef); }, [canvasRef]);
 
   return (
     <SkiaCanvas ref={canvasRef} style={{ width: canvasWidth, height: canvasHeight }}>
@@ -58,295 +70,229 @@ export function Canvas() {
 
       {/* Layers */}
       {layers.map((layer) => (
-        <LayerRenderer key={layer.id} layer={layer} canvasWidth={canvasWidth} canvasHeight={canvasHeight} deviceFrame={deviceFrame} />
+        <LayerRenderer
+          key={layer.id}
+          layer={layer}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          deviceFrame={deviceFrame}
+          isSelected={layer.id === selectedLayerId}
+          dragOffsetX={dragOffsetX}
+          dragOffsetY={dragOffsetY}
+          pinchScale={pinchScale}
+        />
       ))}
     </SkiaCanvas>
   );
 }
 
-function DeviceFrameRenderer({
-  frame,
-  canvasWidth,
-  canvasHeight,
-}: {
-  frame: DeviceFrame;
-  canvasWidth: number;
-  canvasHeight: number;
-}) {
-  const { frameRect, screenRect, bezelWidth } = getFrameLayout(frame, canvasWidth, canvasHeight);
+// ─── Device Frame ────────────────────────────────────────────────────────────
 
-  const isPhone = frame.category === 'iphone' || frame.category === 'android';
+function DeviceFrameRenderer({
+  frame, canvasWidth, canvasHeight,
+}: { frame: DeviceFrame; canvasWidth: number; canvasHeight: number }) {
+  const { frameRect, screenRect } = getFrameLayout(frame, canvasWidth, canvasHeight);
+  const isPhone  = frame.category === 'iphone' || frame.category === 'android';
   const isTablet = frame.category === 'ipad';
-  const outerRadius = isPhone ? 40 : isTablet ? 24 : 8;
-  const innerRadius = isPhone ? 32 : isTablet ? 16 : 4;
+  const outerR   = isPhone ? 40 : isTablet ? 24 : 8;
+  const innerR   = isPhone ? 32 : isTablet ? 16 : 4;
 
   return (
     <Group>
-      {/* Device body shadow */}
-      <RoundedRect
-        x={frameRect.x}
-        y={frameRect.y}
-        width={frameRect.width}
-        height={frameRect.height}
-        r={outerRadius}
-        color="rgba(0,0,0,0.01)"
-      >
+      <RoundedRect x={frameRect.x} y={frameRect.y} width={frameRect.width} height={frameRect.height} r={outerR} color="rgba(0,0,0,0.01)">
         <Shadow dx={0} dy={8} blur={24} color="rgba(0,0,0,0.3)" />
       </RoundedRect>
-
-      {/* Device body */}
-      <RoundedRect
-        x={frameRect.x}
-        y={frameRect.y}
-        width={frameRect.width}
-        height={frameRect.height}
-        r={outerRadius}
-        color="#1a1a1a"
-      />
-
-      {/* Side bezel highlights */}
-      <RoundedRect
-        x={frameRect.x + 1}
-        y={frameRect.y + 1}
-        width={frameRect.width - 2}
-        height={frameRect.height - 2}
-        r={outerRadius - 1}
-        color="#2a2a2a"
-      />
-
-      {/* Screen area (dark background for when no image is loaded) */}
-      <RoundedRect
-        x={screenRect.x}
-        y={screenRect.y}
-        width={screenRect.width}
-        height={screenRect.height}
-        r={innerRadius}
-        color="#000000"
-      />
-
-      {/* Dynamic Island / Notch for iPhones */}
+      <RoundedRect x={frameRect.x} y={frameRect.y} width={frameRect.width} height={frameRect.height} r={outerR} color="#1a1a1a" />
+      <RoundedRect x={frameRect.x + 1} y={frameRect.y + 1} width={frameRect.width - 2} height={frameRect.height - 2} r={outerR - 1} color="#2a2a2a" />
+      <RoundedRect x={screenRect.x} y={screenRect.y} width={screenRect.width} height={screenRect.height} r={innerR} color="#000000" />
       {isPhone && frame.deviceId !== 'iphone-se-3' && (
-        <RoundedRect
-          x={screenRect.x + screenRect.width / 2 - 45}
-          y={screenRect.y + 8}
-          width={90}
-          height={28}
-          r={14}
-          color="#1a1a1a"
-        />
+        <RoundedRect x={screenRect.x + screenRect.width / 2 - 45} y={screenRect.y + 8} width={90} height={28} r={14} color="#1a1a1a" />
       )}
     </Group>
   );
 }
 
-export function getFrameLayout(
-  frame: DeviceFrame,
-  canvasWidth: number,
-  canvasHeight: number,
-) {
-  const isPhone = frame.category === 'iphone' || frame.category === 'android';
+// ─── getFrameLayout (exported for VideoOverlay / export screen) ──────────────
+
+export function getFrameLayout(frame: DeviceFrame, canvasWidth: number, canvasHeight: number) {
+  const isPhone  = frame.category === 'iphone' || frame.category === 'android';
   const isTablet = frame.category === 'ipad';
-  const bezelWidth = isPhone ? 12 : isTablet ? 16 : 20;
-  const bezelTop = isPhone ? 12 : isTablet ? 16 : 24;
+  const bezelWidth  = isPhone ? 12 : isTablet ? 16 : 20;
+  const bezelTop    = isPhone ? 12 : isTablet ? 16 : 24;
   const bezelBottom = isPhone ? 12 : isTablet ? 16 : 8;
 
-  const aspectRatio = frame.screenSize.width / frame.screenSize.height;
-  const maxScreenHeight = canvasHeight * 0.7;
-  const maxScreenWidth = canvasWidth * 0.6;
-
-  let screenWidth = maxScreenWidth;
+  const aspectRatio    = frame.screenSize.width / frame.screenSize.height;
+  const maxScreenH     = canvasHeight * 0.7;
+  const maxScreenW     = canvasWidth  * 0.6;
+  let screenWidth  = maxScreenW;
   let screenHeight = screenWidth / aspectRatio;
-  if (screenHeight > maxScreenHeight) {
-    screenHeight = maxScreenHeight;
-    screenWidth = screenHeight * aspectRatio;
-  }
+  if (screenHeight > maxScreenH) { screenHeight = maxScreenH; screenWidth = screenHeight * aspectRatio; }
 
-  const frameWidth = screenWidth + bezelWidth * 2;
+  const frameWidth  = screenWidth  + bezelWidth * 2;
   const frameHeight = screenHeight + bezelTop + bezelBottom;
-  const frameX = (canvasWidth - frameWidth) / 2;
+  const frameX = (canvasWidth  - frameWidth)  / 2;
   const frameY = (canvasHeight - frameHeight) / 2;
 
   return {
-    frameRect: { x: frameX, y: frameY, width: frameWidth, height: frameHeight },
-    screenRect: {
-      x: frameX + bezelWidth,
-      y: frameY + bezelTop,
-      width: screenWidth,
-      height: screenHeight,
-    },
+    frameRect:  { x: frameX, y: frameY, width: frameWidth, height: frameHeight },
+    screenRect: { x: frameX + bezelWidth, y: frameY + bezelTop, width: screenWidth, height: screenHeight },
     bezelWidth,
   };
 }
 
-function LayerRenderer({
-  layer,
-  canvasWidth,
-  canvasHeight,
-  deviceFrame,
-}: {
+// ─── LayerRenderer ───────────────────────────────────────────────────────────
+
+interface LayerRendererProps {
   layer: Layer;
   canvasWidth: number;
   canvasHeight: number;
   deviceFrame: DeviceFrame | null;
-}) {
-  if (layer.type === 'text') {
-    return <TextLayerRenderer layer={layer} canvasWidth={canvasWidth} canvasHeight={canvasHeight} />;
-  }
+  isSelected: boolean;
+  dragOffsetX: SharedValue<number>;
+  dragOffsetY: SharedValue<number>;
+  pinchScale:  SharedValue<number>;
+}
 
-  if (layer.type === 'image') {
-    return (
-      <ImageLayerRenderer
-        layer={layer}
-        canvasWidth={canvasWidth}
-        canvasHeight={canvasHeight}
-        deviceFrame={deviceFrame}
-      />
-    );
+function LayerRenderer(props: LayerRendererProps) {
+  if (props.layer.type === 'text') {
+    return <TextLayerRenderer {...props} />;
   }
-
+  if (props.layer.type === 'image') {
+    return <ImageLayerRenderer {...props} />;
+  }
   return null;
 }
 
-function TextLayerRenderer({
-  layer,
-  canvasWidth,
-  canvasHeight,
-}: {
-  layer: Layer;
-  canvasWidth: number;
-  canvasHeight: number;
-}) {
-  const font = useFont(null, layer.size.height || 24);
+// ─── Text Layer ──────────────────────────────────────────────────────────────
+
+const SELECTION_COLOR = 'rgba(43,140,238,0.9)';
+
+const FONT_MAP = {
+  normal: NotoSansJP_400Regular,
+  bold:   NotoSansJP_700Bold,
+  black:  NotoSansJP_900Black,
+};
+
+function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragOffsetX, dragOffsetY, pinchScale }: LayerRendererProps) {
+  const fontSize    = layer.size.height || 24;
+  const fontAsset   = FONT_MAP[layer.fontWeight ?? 'normal'];
+  const font        = useFont(fontAsset, fontSize);
+
+  // Approximate text width for centering (Noto Sans JP is roughly 0.55em per char)
+  const approxCharW = fontSize * 0.55;
+  const baseX = canvasWidth  / 2 + layer.position.x - (layer.uri.length * approxCharW) / 2;
+  const baseY = canvasHeight / 2 + layer.position.y;
+
+  // Real-time position via SharedValue — updates on UI thread without React re-render
+  const x = useDerivedValue(() => baseX + (isSelected ? dragOffsetX.value : 0));
+  const y = useDerivedValue(() => baseY + (isSelected ? dragOffsetY.value : 0));
+
+  // Selection border (top-left corner of text bounding box)
+  const pad = 6;
+  const bx  = useDerivedValue(() => baseX - pad + (isSelected ? dragOffsetX.value : 0));
+  const by  = useDerivedValue(() => baseY - fontSize - pad + (isSelected ? dragOffsetY.value : 0));
+  const bw  = layer.uri.length * approxCharW + pad * 2;
+  const bh  = fontSize + pad * 2;
 
   if (!font) return null;
 
-  const x = canvasWidth / 2 + layer.position.x - (layer.uri.length * (layer.size.height || 24) * 0.3);
-  const y = canvasHeight / 2 + layer.position.y;
-
   return (
     <Group opacity={layer.opacity}>
+      {/* Selection border */}
+      {isSelected && (
+        <Rect x={bx} y={by} width={bw} height={bh} color="transparent" style="stroke" strokeWidth={1.5}>
+          <Paint color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
+        </Rect>
+      )}
+      {/* Shadow */}
       {layer.shadow.enabled && (
         <SkiaText
-          x={x + layer.shadow.offsetX}
-          y={y + layer.shadow.offsetY}
+          x={useDerivedValue(() => x.value + layer.shadow.offsetX)}
+          y={useDerivedValue(() => y.value + layer.shadow.offsetY)}
           text={layer.uri}
           font={font}
           color={`rgba(0,0,0,${layer.shadow.opacity})`}
         />
       )}
+      {/* Text */}
       <SkiaText
         x={x}
         y={y}
         text={layer.uri}
         font={font}
-        color={layer.stroke.enabled ? layer.stroke.color : '#ffffff'}
+        color={layer.textColor ?? '#ffffff'}
       />
     </Group>
   );
 }
 
-function ImageLayerRenderer({
-  layer,
-  canvasWidth,
-  canvasHeight,
-  deviceFrame,
-}: {
-  layer: Layer;
-  canvasWidth: number;
-  canvasHeight: number;
-  deviceFrame: DeviceFrame | null;
-}) {
+// ─── Image Layer ─────────────────────────────────────────────────────────────
+
+function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, deviceFrame, isSelected, dragOffsetX, dragOffsetY }: LayerRendererProps) {
   const image = useImage(layer.uri);
+
+  let baseX: number, baseY: number, drawWidth: number, drawHeight: number;
+
+  if (deviceFrame) {
+    const { screenRect } = getFrameLayout(deviceFrame, canvasWidth, canvasHeight);
+    const ar = layer.size.width / layer.size.height;
+    drawWidth  = screenRect.width;
+    drawHeight = drawWidth / ar;
+    if (drawHeight > screenRect.height) { drawHeight = screenRect.height; drawWidth = drawHeight * ar; }
+    baseX = screenRect.x + (screenRect.width  - drawWidth)  / 2 + layer.position.x;
+    baseY = screenRect.y + (screenRect.height - drawHeight) / 2 + layer.position.y;
+  } else {
+    const ar = layer.size.width / layer.size.height;
+    const mw = canvasWidth * 0.8, mh = canvasHeight * 0.8;
+    drawWidth  = mw;
+    drawHeight = drawWidth / ar;
+    if (drawHeight > mh) { drawHeight = mh; drawWidth = drawHeight * ar; }
+    baseX = (canvasWidth  - drawWidth)  / 2 + layer.position.x;
+    baseY = (canvasHeight - drawHeight) / 2 + layer.position.y;
+  }
+
+  const x = useDerivedValue(() => baseX + (isSelected ? dragOffsetX.value : 0));
+  const y = useDerivedValue(() => baseY + (isSelected ? dragOffsetY.value : 0));
 
   if (!image) return null;
 
-  let x: number, y: number, drawWidth: number, drawHeight: number;
-
-  if (deviceFrame) {
-    // Place image inside device frame screen area
-    const { screenRect } = getFrameLayout(deviceFrame, canvasWidth, canvasHeight);
-    const aspectRatio = layer.size.width / layer.size.height;
-    drawWidth = screenRect.width;
-    drawHeight = drawWidth / aspectRatio;
-    if (drawHeight > screenRect.height) {
-      drawHeight = screenRect.height;
-      drawWidth = drawHeight * aspectRatio;
-    }
-    x = screenRect.x + (screenRect.width - drawWidth) / 2 + layer.position.x;
-    y = screenRect.y + (screenRect.height - drawHeight) / 2 + layer.position.y;
-  } else {
-    // No device frame - place centered on canvas
-    const aspectRatio = layer.size.width / layer.size.height;
-    const maxWidth = canvasWidth * 0.8;
-    const maxHeight = canvasHeight * 0.8;
-    drawWidth = maxWidth;
-    drawHeight = drawWidth / aspectRatio;
-    if (drawHeight > maxHeight) {
-      drawHeight = maxHeight;
-      drawWidth = drawHeight * aspectRatio;
-    }
-    x = (canvasWidth - drawWidth) / 2 + layer.position.x;
-    y = (canvasHeight - drawHeight) / 2 + layer.position.y;
-  }
-
-  const hasCornerRadius = layer.cornerRadius > 0;
-
-  if (hasCornerRadius) {
-    return (
-      <Group opacity={layer.opacity}>
-        <RoundedRect x={x} y={y} width={drawWidth} height={drawHeight} r={layer.cornerRadius}>
-          {layer.shadow.enabled && (
-            <Shadow
-              dx={layer.shadow.offsetX}
-              dy={layer.shadow.offsetY}
-              blur={layer.shadow.blur}
-              color={layer.shadow.color}
-            />
-          )}
-          <Image image={image} x={x} y={y} width={drawWidth} height={drawHeight} fit="cover" />
-        </RoundedRect>
-        {layer.stroke.enabled && layer.stroke.width > 0 && (
-          <RoundedRect
-            x={x}
-            y={y}
-            width={drawWidth}
-            height={drawHeight}
-            r={layer.cornerRadius}
-            color="transparent"
-            style="stroke"
-            strokeWidth={layer.stroke.width}
-          >
-            <Paint color={layer.stroke.color} style="stroke" strokeWidth={layer.stroke.width} />
-          </RoundedRect>
-        )}
-      </Group>
-    );
-  }
+  const r = layer.cornerRadius;
+  const hasShadow = layer.shadow.enabled;
+  const hasStroke = layer.stroke.enabled && layer.stroke.width > 0;
 
   return (
     <Group opacity={layer.opacity}>
-      {layer.shadow.enabled && (
-        <Rect x={x} y={y} width={drawWidth} height={drawHeight}>
-          <Shadow
-            dx={layer.shadow.offsetX}
-            dy={layer.shadow.offsetY}
-            blur={layer.shadow.blur}
-            color={layer.shadow.color}
-          />
-        </Rect>
+      {r > 0 ? (
+        <>
+          <RoundedRect x={x} y={y} width={drawWidth} height={drawHeight} r={r}>
+            {hasShadow && <Shadow dx={layer.shadow.offsetX} dy={layer.shadow.offsetY} blur={layer.shadow.blur} color={layer.shadow.color} />}
+            <Image image={image} x={x} y={y} width={drawWidth} height={drawHeight} fit="cover" />
+          </RoundedRect>
+          {hasStroke && (
+            <RoundedRect x={x} y={y} width={drawWidth} height={drawHeight} r={r} color="transparent" style="stroke" strokeWidth={layer.stroke.width}>
+              <Paint color={layer.stroke.color} style="stroke" strokeWidth={layer.stroke.width} />
+            </RoundedRect>
+          )}
+        </>
+      ) : (
+        <>
+          {hasShadow && (
+            <Rect x={x} y={y} width={drawWidth} height={drawHeight}>
+              <Shadow dx={layer.shadow.offsetX} dy={layer.shadow.offsetY} blur={layer.shadow.blur} color={layer.shadow.color} />
+            </Rect>
+          )}
+          <Image image={image} x={x} y={y} width={drawWidth} height={drawHeight} fit="cover" />
+          {hasStroke && (
+            <Rect x={x} y={y} width={drawWidth} height={drawHeight} color="transparent" style="stroke" strokeWidth={layer.stroke.width}>
+              <Paint color={layer.stroke.color} style="stroke" strokeWidth={layer.stroke.width} />
+            </Rect>
+          )}
+        </>
       )}
-      <Image image={image} x={x} y={y} width={drawWidth} height={drawHeight} fit="cover" />
-      {layer.stroke.enabled && layer.stroke.width > 0 && (
-        <Rect
-          x={x}
-          y={y}
-          width={drawWidth}
-          height={drawHeight}
-          color="transparent"
-          style="stroke"
-          strokeWidth={layer.stroke.width}
-        >
-          <Paint color={layer.stroke.color} style="stroke" strokeWidth={layer.stroke.width} />
+      {/* Selection border */}
+      {isSelected && (
+        <Rect x={x} y={y} width={drawWidth} height={drawHeight} color="transparent" style="stroke" strokeWidth={1.5}>
+          <Paint color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
         </Rect>
       )}
     </Group>

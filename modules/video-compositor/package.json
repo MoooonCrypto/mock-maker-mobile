@@ -1,0 +1,7 @@
+{
+  "name": "video-compositor",
+  "version": "1.0.0",
+  "description": "Local AVFoundation video compositor module for MockMaker",
+  "main": "index.ts",
+  "license": "MIT"
+}

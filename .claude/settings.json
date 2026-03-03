@@ -4,12 +4,12 @@
     "deny": [
       "Bash(sudo:*)",
 
-      // 危険な削除系
+      
       "Bash(rm:*)",
       "Bash(rm -rf:*)",
       "Bash(del:*)",
 
-      // Git操作禁止（人間がやる）
+      
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(git reset:*)",
@@ -19,7 +19,7 @@
       "Bash(git cherry-pick:*)",
       "Bash(git merge:*)",
 
-      // パッケージ管理禁止（依存追加削除は手動）
+      
       "Bash(npm install:*)",
       "Bash(npm i:*)",
       "Bash(npm uninstall:*)",
@@ -33,28 +33,28 @@
       "Bash(npx expo install:*)",
       "Bash(npx expo prebuild:*)",
 
-      // ビルド・実行系も禁止（ユーザー管理）
+      
       "Bash(npx expo run:*)",
       "Bash(npx expo build:*)",
       "Bash(eas build:*)",
 
-      // 外部通信系禁止
+      
       "Bash(curl:*)",
       "Bash(wget:*)",
       "Bash(nc:*)",
 
-      // DB接続禁止
+      
       "Bash(psql:*)",
       "Bash(mysql:*)",
       "Bash(mongod:*)",
 
-      // 親ディレクトリ操作禁止
+      
       "Read(../*)",
       "Read(../../*)",
       "Write(../*)",
       "Write(../../*)",
 
-      // 機密情報保護
+      
       "Read(.env*)",
       "Read(**/.env*)",
       "Read(**/id_rsa)",
@@ -66,7 +66,7 @@
       "Write(.env*)",
       "Write(**/secrets/**)",
 
-      // ロックファイル・依存定義変更禁止
+      
       "Write(package.json)",
       "Write(package-lock.json)",
       "Write(yarn.lock)",

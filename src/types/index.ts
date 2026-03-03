@@ -22,6 +22,9 @@ export interface Layer {
   shadow: ShadowConfig;
   stroke: StrokeConfig;
   zIndex: number;
+  // Text-only fields
+  textColor?: string;
+  fontWeight?: 'normal' | 'bold' | 'black';
 }
 
 export interface ShadowConfig {
@@ -41,7 +44,7 @@ export interface StrokeConfig {
 
 export interface DeviceFrame {
   deviceId: string;
-  category: 'iphone' | 'ipad' | 'mac' | 'windows' | 'android' | 'watch';
+  category: 'iphone' | 'ipad' | 'mac' | 'android' | 'watch';
   name: string;
   screenSize: { width: number; height: number };
   frameImageUri: string;

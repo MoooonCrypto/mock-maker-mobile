@@ -53,7 +53,8 @@ export const createDefaultLayer = (
   id: Date.now().toString(),
   type,
   uri,
-  position: { x: 0, y: 0 },
+  // Text layers appear above the device frame area (y = -180 ≈ above center)
+  position: type === 'text' ? { x: 0, y: -180 } : { x: 0, y: 0 },
   size,
   rotation: 0,
   opacity: 1,
@@ -61,6 +62,7 @@ export const createDefaultLayer = (
   shadow: { ...defaultShadow },
   stroke: { ...defaultStroke },
   zIndex: 0,
+  ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const }),
 });
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -74,7 +76,7 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   setSessionName: (name) => set({ sessionName: name }),
   setLayers: (layers) => set({ layers }),
-  addLayer: (layer) => set((s) => ({ layers: [...s.layers, layer] })),
+  addLayer: (layer) => set((s) => ({ layers: [...s.layers, layer], selectedLayerId: layer.id })),
   updateLayer: (id, updates) =>
     set((s) => ({
       layers: s.layers.map((l) => (l.id === id ? { ...l, ...updates } : l)),
