@@ -4,50 +4,81 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
 
 export function LayerPanel() {
-  const { layers, selectedLayerId, selectLayer, removeLayer } = useEditorStore();
+  const { layers, selectedLayerId, selectLayer, removeLayer, selectedFrameId, setSelectedFrameId, background, setActiveTool } = useEditorStore();
+  const frameEnabled = selectedFrameId !== 'none';
 
-  if (layers.length === 0) {
-    return (
-      <View className="bg-white border-t border-gray-200 px-4 py-4">
-        <Text className="text-sm text-gray-400 text-center">レイヤーがありません</Text>
-      </View>
-    );
-  }
+  const bgLabel =
+    background.type === 'solid'    ? '単色'         :
+    background.type === 'gradient' ? 'グラデーション' : '画像';
 
   return (
-    <View className="bg-white border-t border-gray-200 px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-500 mb-3">レイヤー</Text>
-      <ScrollView style={{ maxHeight: 200 }}>
+    <ScrollView style={{ maxHeight: 220 }} className="bg-white border-t border-gray-200">
+      <View className="px-4 pt-3 pb-2">
+        <Text className="text-sm font-semibold text-gray-500 mb-2">レイヤー</Text>
+
+        {layers.length === 0 && (
+          <Text className="text-xs text-gray-400 text-center py-2">レイヤーがありません</Text>
+        )}
         {[...layers].reverse().map((layer) => {
-          const isSelected = selectedLayerId === layer.id;
+          const isSel = selectedLayerId === layer.id;
+          const label =
+            layer.type === 'image' ? '画像' :
+            layer.type === 'video' ? '動画' :
+            `テキスト: ${layer.uri.slice(0, 12)}${layer.uri.length > 12 ? '…' : ''}`;
+          const icon =
+            layer.type === 'image' ? 'image-outline'   :
+            layer.type === 'video' ? 'videocam-outline' : 'text-outline';
+
           return (
             <TouchableOpacity
               key={layer.id}
-              onPress={() => selectLayer(isSelected ? null : layer.id)}
-              className={`flex-row items-center py-3 px-3 rounded-lg mb-1 ${
-                isSelected ? 'bg-blue-50' : ''
-              }`}
+              onPress={() => selectLayer(isSel ? null : layer.id)}
+              className={`flex-row items-center py-2.5 px-3 rounded-lg mb-1 ${isSel ? 'bg-blue-50' : ''}`}
             >
-              <Ionicons
-                name={layer.type === 'image' ? 'image-outline' : layer.type === 'video' ? 'videocam-outline' : 'text-outline'}
-                size={18}
-                color={isSelected ? colors.primary : colors.textSecondary}
-              />
+              <Ionicons name={icon} size={17} color={isSel ? colors.primary : colors.textSecondary} />
               <Text
-                className={`flex-1 ml-3 text-sm ${
-                  isSelected ? 'text-primary font-medium' : 'text-gray-700'
-                }`}
+                className={`flex-1 ml-3 text-sm ${isSel ? 'text-primary font-medium' : 'text-gray-700'}`}
                 numberOfLines={1}
               >
-                {layer.type === 'image' ? '画像' : layer.type === 'video' ? '動画' : 'テキスト'}
+                {label}
               </Text>
               <TouchableOpacity onPress={() => removeLayer(layer.id)} hitSlop={8}>
-                <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                <Ionicons name="trash-outline" size={15} color={colors.danger} />
               </TouchableOpacity>
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
-    </View>
+
+        <View className="h-px bg-gray-100 my-1" />
+
+        {/* Background */}
+        <TouchableOpacity
+          onPress={() => setActiveTool('background')}
+          className="flex-row items-center py-2.5 px-3 rounded-lg mb-1 bg-gray-50"
+        >
+          <Ionicons name="color-palette-outline" size={17} color={colors.textSecondary} />
+          <Text className="flex-1 ml-3 text-sm text-gray-500" numberOfLines={1}>
+            背景 ({bgLabel})
+          </Text>
+          <Ionicons name="chevron-forward" size={13} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Frame toggle */}
+        <TouchableOpacity
+          onPress={() => setSelectedFrameId(frameEnabled ? 'none' : 'iphone')}
+          className="flex-row items-center py-2.5 px-3 rounded-lg mb-1 bg-gray-50"
+        >
+          <Ionicons name="phone-portrait-outline" size={17} color={colors.textSecondary} />
+          <Text className="flex-1 ml-3 text-sm text-gray-500">
+            フレーム
+          </Text>
+          <View
+            className={`w-10 h-6 rounded-full justify-center ${frameEnabled ? 'bg-primary items-end' : 'bg-gray-300 items-start'}`}
+          >
+            <View className="w-5 h-5 bg-white rounded-full mx-0.5" />
+          </View>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }

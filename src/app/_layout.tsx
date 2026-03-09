@@ -35,10 +35,6 @@ export default function RootLayout() {
           options={{ animation: 'slide_from_right' }}
         />
         <Stack.Screen
-          name="editor/frame-select"
-          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-        />
-        <Stack.Screen
           name="export/[id]"
           options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
         />

@@ -1,15 +1,25 @@
 import { create } from 'zustand';
 import type { RefObject } from 'react';
 import type { CanvasRef } from '@shopify/react-native-skia';
-import { Layer, DeviceFrame, Background, ShadowConfig, StrokeConfig } from '../types';
+import { Layer, Background, ShadowConfig, StrokeConfig } from '../types';
+
+type ScreenRect = { x: number; y: number; width: number; height: number };
+
+export type FrameId = 'iphone' | 'iphone-se' | 'none';
+
+export type FrameScreenType = 'transparent' | 'opaque' | null;
 
 interface EditorState {
   sessionName: string;
   layers: Layer[];
   selectedLayerId: string | null;
-  deviceFrame: DeviceFrame | null;
+  frameEnabled: boolean;
+  selectedFrameId: FrameId;
+  frameScale: number;
+  frameScreenRect: ScreenRect | null;
+  frameScreenType: FrameScreenType;
   background: Background;
-  activeTool: 'select' | 'frame' | 'background' | 'text' | 'canvas' | 'layers';
+  activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame';
   canvasRef: RefObject<CanvasRef | null> | null;
 
   setSessionName: (name: string) => void;
@@ -18,7 +28,10 @@ interface EditorState {
   updateLayer: (id: string, updates: Partial<Layer>) => void;
   removeLayer: (id: string) => void;
   selectLayer: (id: string | null) => void;
-  setDeviceFrame: (frame: DeviceFrame | null) => void;
+  setFrameEnabled: (enabled: boolean) => void;
+  setSelectedFrameId: (id: FrameId) => void;
+  setFrameScale: (scale: number) => void;
+  setFrameScreenRect: (rect: ScreenRect | null, type: FrameScreenType) => void;
   setBackground: (bg: Background) => void;
   setActiveTool: (tool: EditorState['activeTool']) => void;
   setCanvasRef: (ref: RefObject<CanvasRef | null>) => void;
@@ -53,8 +66,7 @@ export const createDefaultLayer = (
   id: Date.now().toString(),
   type,
   uri,
-  // Text layers appear above the device frame area (y = -180 ≈ above center)
-  position: type === 'text' ? { x: 0, y: -180 } : { x: 0, y: 0 },
+  position: type === 'text' ? { x: 0, y: -250 } : { x: 0, y: 0 },
   size,
   rotation: 0,
   opacity: 1,
@@ -62,14 +74,18 @@ export const createDefaultLayer = (
   shadow: { ...defaultShadow },
   stroke: { ...defaultStroke },
   zIndex: 0,
-  ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const }),
+  ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
 });
 
 export const useEditorStore = create<EditorState>((set) => ({
   sessionName: '無題のモックアップ',
   layers: [],
   selectedLayerId: null,
-  deviceFrame: null,
+  frameEnabled: true,
+  selectedFrameId: 'iphone',
+  frameScale: 1.0,
+  frameScreenRect: null,
+  frameScreenType: null,
   background: defaultBackground,
   activeTool: 'select',
   canvasRef: null,
@@ -87,7 +103,10 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedLayerId: s.selectedLayerId === id ? null : s.selectedLayerId,
     })),
   selectLayer: (id) => set({ selectedLayerId: id }),
-  setDeviceFrame: (frame) => set({ deviceFrame: frame }),
+  setFrameEnabled: (enabled) => set({ frameEnabled: enabled }),
+  setSelectedFrameId: (id) => set({ selectedFrameId: id, frameEnabled: id !== 'none', frameScale: 1.0, frameScreenRect: null, frameScreenType: null }),
+  setFrameScale: (scale) => set({ frameScale: scale }),
+  setFrameScreenRect: (rect, type) => set({ frameScreenRect: rect, frameScreenType: type }),
   setBackground: (bg) => set({ background: bg }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setCanvasRef: (ref) => set({ canvasRef: ref }),
@@ -96,7 +115,11 @@ export const useEditorStore = create<EditorState>((set) => ({
       sessionName: '無題のモックアップ',
       layers: [],
       selectedLayerId: null,
-      deviceFrame: null,
+      frameEnabled: true,
+      selectedFrameId: 'iphone',
+      frameScale: 1.0,
+      frameScreenRect: null,
+      frameScreenType: null,
       background: defaultBackground,
       activeTool: 'select',
       canvasRef: null,

@@ -1,4 +1,6 @@
 import { View, TouchableOpacity, ScrollView, Text } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { presetBackgrounds } from '@/constants/backgrounds';
 import { Background } from '@/types';
@@ -11,10 +13,34 @@ export function BackgroundPicker() {
     setBackground(bg);
   };
 
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setBackground({ type: 'image', imageUri: result.assets[0].uri });
+    }
+  };
+
+  const isImageBg = background.type === 'image';
+
   return (
     <View className="bg-white border-t border-gray-200 px-4 py-3">
       <Text className="text-sm font-semibold text-gray-500 mb-3">背景</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {/* Image picker button */}
+        <TouchableOpacity
+          onPress={handlePickImage}
+          className={`w-12 h-12 rounded-xl mr-2 items-center justify-center ${
+            isImageBg ? 'border-2 border-primary' : 'border border-gray-200'
+          }`}
+          style={{ backgroundColor: '#f3f4f6' }}
+        >
+          <Ionicons name="image-outline" size={22} color={isImageBg ? colors.primary : colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Preset backgrounds */}
         {presetBackgrounds.map((bg, index) => {
           const isSelected =
             (bg.type === 'solid' && background.type === 'solid' && bg.color === background.color) ||
@@ -33,10 +59,7 @@ export function BackgroundPicker() {
                 bg.type === 'solid'
                   ? { backgroundColor: bg.color }
                   : bg.type === 'gradient' && bg.gradient
-                  ? {
-                      // Fallback to first gradient color; real gradient in native
-                      backgroundColor: bg.gradient.colors[0],
-                    }
+                  ? { backgroundColor: bg.gradient.colors[0] }
                   : undefined
               }
             />

@@ -4,32 +4,29 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
 
 interface Props {
-  onFrameSelect: () => void;
+  onMediaPress: () => void;
 }
 
 const tools = [
-  { key: 'frame' as const, icon: 'phone-portrait-outline' as const, label: 'フレーム' },
-  { key: 'background' as const, icon: 'color-palette-outline' as const, label: '背景' },
-  { key: 'text' as const, icon: 'text-outline' as const, label: 'テキスト' },
-  { key: 'canvas' as const, icon: 'resize-outline' as const, label: 'キャンバス' },
-  { key: 'layers' as const, icon: 'layers-outline' as const, label: 'レイヤー' },
+  { key: 'frame'      as const, icon: 'phone-portrait-outline' as const, label: 'フレーム' },
+  { key: 'background' as const, icon: 'color-palette-outline'  as const, label: '背景' },
+  { key: 'text'       as const, icon: 'text-outline'           as const, label: 'テキスト' },
+  { key: 'media'      as const, icon: 'image-outline'          as const, label: 'メディア' },
+  { key: 'layers'     as const, icon: 'layers-outline'         as const, label: 'レイヤー' },
 ] as const;
 
-export function Toolbar({ onFrameSelect }: Props) {
-  const { activeTool, setActiveTool } = useEditorStore();
+export function Toolbar({ onMediaPress }: Props) {
+  const { activeTool, setActiveTool, selectedFrameId } = useEditorStore();
 
   const handlePress = (key: typeof tools[number]['key']) => {
-    if (key === 'frame') {
-      onFrameSelect();
-      return;
-    }
+    if (key === 'media') { onMediaPress(); return; }
     setActiveTool(activeTool === key ? 'select' : key);
   };
 
   return (
     <View className="bg-white border-t border-gray-200 flex-row justify-around py-2 px-2">
       {tools.map(({ key, icon, label }) => {
-        const isActive = activeTool === key;
+        const isActive = key === 'frame' ? selectedFrameId !== 'none' : activeTool === key;
         return (
           <TouchableOpacity
             key={key}

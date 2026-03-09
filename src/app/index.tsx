@@ -1,18 +1,18 @@
-import { View, Text, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { devices } from '@/constants/devices';
+import { useProjectStore } from '@/stores/useProjectStore';
 import { presetBackgrounds } from '@/constants/backgrounds';
 import { colors } from '@/constants/theme';
-import type { DeviceFrame, Background } from '@/types';
+import type { Background } from '@/types';
 
 interface Template {
   id: string;
   name: string;
   description: string;
-  device: DeviceFrame;
   background: Background;
   icon: keyof typeof Ionicons.glyphMap;
 }
@@ -20,65 +20,43 @@ interface Template {
 const templates: Template[] = [
   {
     id: 'iphone-gradient-purple',
-    name: 'iPhone（パープル）',
-    description: 'iPhone 15 Pro + パープルグラデーション',
-    device: devices.find((d) => d.deviceId === 'iphone-15-pro')!,
+    name: 'パープルグラデーション',
+    description: 'モダンなパープル系グラデーション',
     background: presetBackgrounds[4],
     icon: 'phone-portrait-outline',
   },
   {
     id: 'iphone-gradient-blue',
-    name: 'iPhone（ブルー）',
-    description: 'iPhone 16 Pro + ブルーグラデーション',
-    device: devices.find((d) => d.deviceId === 'iphone-16-pro')!,
+    name: 'ブルーグラデーション',
+    description: 'クールなブルー系グラデーション',
     background: presetBackgrounds[6],
     icon: 'phone-portrait-outline',
   },
   {
     id: 'iphone-gradient-pink',
-    name: 'iPhone（ピンク）',
-    description: 'iPhone 15 + ピンクグラデーション',
-    device: devices.find((d) => d.deviceId === 'iphone-15')!,
+    name: 'ピンクグラデーション',
+    description: 'フレッシュなピンク系グラデーション',
     background: presetBackgrounds[5],
     icon: 'phone-portrait-outline',
   },
   {
-    id: 'ipad-gradient-green',
-    name: 'iPad（グリーン）',
-    description: 'iPad Pro 11" + グリーングラデーション',
-    device: devices.find((d) => d.deviceId === 'ipad-pro-11')!,
-    background: presetBackgrounds[7],
-    icon: 'tablet-portrait-outline',
-  },
-  {
-    id: 'macbook-dark',
-    name: 'MacBook（ダーク）',
-    description: 'MacBook Pro 14" + ダーク背景',
-    device: devices.find((d) => d.deviceId === 'macbook-pro-14')!,
+    id: 'iphone-dark',
+    name: 'ダークテーマ',
+    description: 'スタイリッシュなダーク背景',
     background: presetBackgrounds[3],
-    icon: 'laptop-outline',
+    icon: 'phone-portrait-outline',
   },
   {
     id: 'iphone-white',
-    name: 'iPhone（ホワイト）',
-    description: 'iPhone 16 Pro Max + ホワイト',
-    device: devices.find((d) => d.deviceId === 'iphone-16-pro-max')!,
+    name: 'ホワイト',
+    description: 'クリーンなホワイト背景',
     background: presetBackgrounds[0],
     icon: 'phone-portrait-outline',
   },
   {
-    id: 'macbook-gradient-warm',
-    name: 'MacBook（ウォーム）',
-    description: 'MacBook Pro 16" + ウォームグラデーション',
-    device: devices.find((d) => d.deviceId === 'macbook-pro-16')!,
-    background: presetBackgrounds[10],
-    icon: 'laptop-outline',
-  },
-  {
     id: 'iphone-brand-blue',
-    name: 'iPhone（ブランドブルー）',
-    description: 'iPhone 14 Pro + ブランドブルー',
-    device: devices.find((d) => d.deviceId === 'iphone-14-pro')!,
+    name: 'ブランドブルー',
+    description: 'ビビッドなブランドカラー',
     background: presetBackgrounds[11],
     icon: 'phone-portrait-outline',
   },
@@ -90,9 +68,19 @@ function getBackgroundColor(bg: Background): string {
   return '#f6f7f8';
 }
 
+function formatDate(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { reset, setDeviceFrame, setBackground, setSessionName } = useEditorStore();
+  const { reset, setBackground, setSessionName, setLayers, setSelectedFrameId } = useEditorStore();
+  const { projects, loadProjectList, loadProject, deleteProject } = useProjectStore();
+
+  useEffect(() => {
+    loadProjectList();
+  }, []);
 
   const handleNewProject = () => {
     reset();
@@ -102,9 +90,32 @@ export default function HomeScreen() {
   const handleSelectTemplate = (template: Template) => {
     reset();
     setSessionName(template.name);
-    setDeviceFrame(template.device);
     setBackground(template.background);
     router.push(`/editor/${Date.now()}`);
+  };
+
+  const handleOpenProject = async (projectId: string) => {
+    const data = await loadProject(projectId);
+    if (!data) {
+      Alert.alert('エラー', 'プロジェクトが見つかりませんでした');
+      return;
+    }
+    reset();
+    setSessionName(data.name);
+    setBackground(data.background);
+    setSelectedFrameId(data.selectedFrameId);
+    setLayers(data.layers);
+    router.push(`/editor/${projectId}`);
+  };
+
+  const handleDeleteProject = (projectId: string, name: string) => {
+    Alert.alert('削除', `「${name}」を削除しますか？`, [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除', style: 'destructive',
+        onPress: () => deleteProject(projectId),
+      },
+    ]);
   };
 
   return (
@@ -112,10 +123,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
         <Text className="text-2xl font-bold text-gray-900">MockMaker</Text>
-        <TouchableOpacity
-          onPress={() => router.push('/settings')}
-          hitSlop={8}
-        >
+        <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={8}>
           <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -136,18 +144,48 @@ export default function HomeScreen() {
             }}
           >
             <Ionicons name="add-circle-outline" size={22} color="#fff" />
-            <Text className="text-white font-semibold text-base ml-2">
-              新規作成（空白）
-            </Text>
+            <Text className="text-white font-semibold text-base ml-2">新規作成（空白）</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Saved Projects */}
+        {projects.length > 0 && (
+          <>
+            <View className="px-5 mb-3">
+              <Text className="text-lg font-bold text-gray-900">保存済みプロジェクト</Text>
+            </View>
+            {projects.map((project) => (
+              <TouchableOpacity
+                key={project.id}
+                onPress={() => handleOpenProject(project.id)}
+                activeOpacity={0.7}
+                className="mx-5 mb-2 bg-white rounded-xl px-4 py-3 flex-row items-center"
+                style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }}
+              >
+                <View className="w-10 h-10 bg-primary/10 rounded-lg items-center justify-center mr-3">
+                  <Ionicons name="document-outline" size={20} color={colors.primary} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>{project.name}</Text>
+                  <Text className="text-xs text-gray-400 mt-0.5">{formatDate(project.updatedAt)}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleDeleteProject(project.id, project.name)}
+                  hitSlop={8}
+                  className="ml-2 p-1"
+                >
+                  <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+            <View className="mb-4" />
+          </>
+        )}
 
         {/* Templates */}
         <View className="px-5 mb-3">
           <Text className="text-lg font-bold text-gray-900">テンプレートから始める</Text>
-          <Text className="text-sm text-gray-400 mt-0.5">
-            デバイスと背景が設定済みのテンプレートを選択
-          </Text>
+          <Text className="text-sm text-gray-400 mt-0.5">背景が設定済みのテンプレートを選択</Text>
         </View>
 
         <FlatList
@@ -174,19 +212,11 @@ export default function HomeScreen() {
                   className="h-28 items-center justify-center"
                   style={{ backgroundColor: bgColor }}
                 >
-                  <Ionicons
-                    name={item.icon}
-                    size={44}
-                    color={isDark ? '#ffffff' : '#1a1a1a50'}
-                  />
+                  <Ionicons name={item.icon} size={44} color={isDark ? '#ffffff' : '#1a1a1a50'} />
                 </View>
                 <View className="p-3">
-                  <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
-                    {item.description}
-                  </Text>
+                  <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>{item.name}</Text>
+                  <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>{item.description}</Text>
                 </View>
               </TouchableOpacity>
             );
