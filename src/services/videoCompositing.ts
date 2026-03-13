@@ -14,7 +14,7 @@
 
 import { PixelRatio } from 'react-native';
 import { composeVideo as nativeCompose } from 'video-compositor';
-import { Paths } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 
 export interface VideoComposeOptions {
   /** file:// URI of the Skia PNG snapshot */
@@ -35,8 +35,9 @@ export async function composeVideoWithFrame(
   const { bgImageUri, videoUri, screenRect } = options;
   const ratio = PixelRatio.get();
 
-  // Output path in cache (bare path, no file:// — native module adds it)
-  const outputPath = `${Paths.cache}/mockup_video_${Date.now()}.mp4`;
+  // Output path in cache — use File API to get a proper file:// URI
+  const outputFile = new File(Paths.cache, `mockup_video_${Date.now()}.mp4`);
+  const outputPath = outputFile.uri;
 
   return await nativeCompose({
     backgroundImagePath: bgImageUri,

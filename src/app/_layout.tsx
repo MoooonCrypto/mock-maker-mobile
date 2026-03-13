@@ -34,10 +34,7 @@ export default function RootLayout() {
           name="editor/[id]"
           options={{ animation: 'slide_from_right' }}
         />
-        <Stack.Screen
-          name="export/[id]"
-          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-        />
+
       </Stack>
     </>
   );

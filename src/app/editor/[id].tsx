@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
-import { View, Text, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import { ImageFormat } from '@shopify/react-native-skia';
+import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { composeVideoWithFrame } from '@/services/videoCompositing';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
 import { Toolbar } from '@/components/editor/Toolbar';
@@ -14,12 +19,14 @@ import { BackgroundPicker } from '@/components/editor/BackgroundPicker';
 import { LayerPanel } from '@/components/editor/LayerPanel';
 import { TextEditPanel } from '@/components/editor/TextEditPanel';
 import { FramePicker } from '@/components/editor/FramePicker';
+import { StickerPicker } from '@/components/editor/StickerPicker';
 import { ImageCropModal } from '@/components/editor/ImageCropModal';
 import { colors } from '@/constants/theme';
 
 export default function EditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
 
   const {
     sessionName,
@@ -32,58 +39,125 @@ export default function EditorScreen() {
     selectedFrameId,
     background,
     frameScreenRect,
+    canvasRef,
     reset,
   } = useEditorStore();
 
   const frameEnabled = selectedFrameId !== 'none';
   const saveProject  = useProjectStore((s) => s.saveProject);
 
-  const selectedLayer = layers.find((l) => l.id === selectedLayerId);
+  const selectedLayer  = layers.find((l) => l.id === selectedLayerId);
   const selectedIsText = selectedLayer?.type === 'text';
 
   const dragOffsetX = useSharedValue(0);
   const dragOffsetY = useSharedValue(0);
   const pinchScale  = useSharedValue(1);
+  const frameDragX  = useSharedValue(0);
+  const frameDragY  = useSharedValue(0);
+  const framePinchS = useSharedValue(1);
 
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  // Crop modal state
   const [cropPending, setCropPending] = useState<{
-    uri: string; width: number; height: number; type: 'image' | 'video';
+    uri: string; width: number; height: number;
   } | null>(null);
 
   useEffect(() => {
     return () => reset();
   }, [id]);
 
-  const [saving, setSaving] = useState(false);
+  // ─── Project save ──────────────────────────────────────────────────────────
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleProjectSave = async () => {
+    setBusy(true);
     try {
-      await saveProject({
-        id,
-        name: sessionName,
-        layers,
-        background,
-        selectedFrameId,
-      });
+      await saveProject({ id, name: sessionName, layers, background, selectedFrameId });
       Alert.alert('保存完了', `「${sessionName}」を保存しました`);
     } catch {
       Alert.alert('エラー', '保存に失敗しました');
     } finally {
-      setSaving(false);
+      setBusy(false);
+    }
+  };
+
+  // ─── Export ────────────────────────────────────────────────────────────────
+
+  const exportTo = async (target: 'photos' | 'files') => {
+    if (!canvasRef?.current) {
+      Alert.alert('エラー', 'キャンバスが見つかりません');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (target === 'photos') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('権限エラー', 'フォトライブラリへのアクセスを許可してください');
+          return;
+        }
+      }
+
+      const snap = await canvasRef.current.makeImageSnapshotAsync();
+      if (!snap) throw new Error('スナップショット取得に失敗しました');
+
+      const videoLayer = layers.find((l) => l.type === 'video');
+
+      if (videoLayer) {
+        // ── 動画レイヤーがある場合: MP4 で書き出す ──
+        const bgEncoded = snap.encodeToBase64(ImageFormat.PNG, 100);
+        const bgFile    = new File(Paths.cache, `frame_bg_${Date.now()}.png`);
+        bgFile.write(bgEncoded, { encoding: 'base64' });
+
+        const canvasHeight = screenWidth * 1.5;
+        const screenRect   = (frameEnabled && frameScreenRect)
+          ? frameScreenRect
+          : { x: 0, y: 0, width: screenWidth, height: canvasHeight };
+
+        const outputUri = await composeVideoWithFrame({
+          bgImageUri: bgFile.uri,
+          videoUri:   videoLayer.uri,
+          screenRect,
+        });
+
+        if (target === 'photos') {
+          await MediaLibrary.saveToLibraryAsync(outputUri);
+          Alert.alert('完了', '動画を写真アプリに保存しました');
+        } else {
+          await Sharing.shareAsync(outputUri, { mimeType: 'video/mp4' });
+        }
+      } else {
+        // ── 画像のみ: PNG で書き出す ──
+        const encoded = snap.encodeToBase64(ImageFormat.PNG, 100);
+        const file    = new File(Paths.cache, `mockup_${Date.now()}.png`);
+        file.write(encoded, { encoding: 'base64' });
+
+        if (target === 'photos') {
+          await MediaLibrary.saveToLibraryAsync(file.uri);
+          Alert.alert('完了', '写真アプリに保存しました');
+        } else {
+          await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
+        }
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert('エラー', `書き出しに失敗しました\n${msg}`);
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleSaveOptions = () => {
     Alert.alert('保存 / 書き出し', null, [
-      { text: 'プロジェクトを保存', onPress: handleSave },
-      { text: '書き出し / 共有', onPress: () => router.push(`/export/${id}`) },
+      { text: '写真アプリに保存', onPress: () => exportTo('photos') },
+      { text: 'ファイルに保存 / 共有', onPress: () => exportTo('files') },
+      { text: 'プロジェクトを保存', onPress: handleProjectSave },
       { text: 'キャンセル', style: 'cancel' },
     ]);
   };
+
+  // ─── Text ──────────────────────────────────────────────────────────────────
 
   const openTextModal = () => {
     setTextInput('');
@@ -99,35 +173,40 @@ export default function EditorScreen() {
     setActiveTool('select');
   };
 
+  // ─── Media pick ────────────────────────────────────────────────────────────
+
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      if (!frameEnabled) {
-        // No frame: add image at natural size, no crop
-        addLayer(createDefaultLayer('image', asset.uri, {
-          width: asset.width,
-          height: asset.height,
-        }));
+      if (frameEnabled) {
+        setCropPending({ uri: asset.uri, width: asset.width, height: asset.height });
       } else {
-        setCropPending({ uri: asset.uri, width: asset.width, height: asset.height, type: 'image' });
+        addLayer(createDefaultLayer('image', asset.uri, { width: asset.width, height: asset.height }));
       }
     }
   };
 
-  const pickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      quality: 1,
+  const handleCropConfirm = (crop: { cropX: number; cropY: number; cropW: number; cropH: number }) => {
+    if (!cropPending) return;
+    const layer = createDefaultLayer('image', cropPending.uri, {
+      width: cropPending.width,
+      height: cropPending.height,
     });
+    addLayer({ ...layer, ...crop });
+    setCropPending(null);
+  };
+
+  const screenAspectRatio = frameScreenRect
+    ? frameScreenRect.height / frameScreenRect.width
+    : 16 / 9;
+
+  const pickVideo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Videos always skip crop modal — added directly
       addLayer(createDefaultLayer('video', asset.uri, {
-        width: asset.width ?? 1080,
+        width:  asset.width  ?? 1080,
         height: asset.height ?? 1920,
       }));
     }
@@ -141,21 +220,6 @@ export default function EditorScreen() {
     ]);
   };
 
-  const handleCropConfirm = (crop: { cropX: number; cropY: number; cropW: number; cropH: number }) => {
-    if (!cropPending) return;
-    const layer = createDefaultLayer('image', cropPending.uri, {
-      width: cropPending.width,
-      height: cropPending.height,
-    });
-    addLayer({ ...layer, ...crop });
-    setCropPending(null);
-  };
-
-  // Compute screen aspect ratio for the crop modal preview
-  const screenAspectRatio = frameScreenRect
-    ? frameScreenRect.height / frameScreenRect.width
-    : 16 / 9;
-
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       {/* Header */}
@@ -166,17 +230,19 @@ export default function EditorScreen() {
         <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
           {sessionName}
         </Text>
-        <TouchableOpacity onPress={handleSaveOptions} disabled={saving} hitSlop={8}>
-          <Ionicons name="ellipsis-horizontal-circle-outline" size={26} color={saving ? '#d1d5db' : colors.primary} />
+        <TouchableOpacity onPress={handleSaveOptions} disabled={busy} hitSlop={8}>
+          {busy
+            ? <ActivityIndicator size="small" color={colors.primary} />
+            : <Ionicons name="arrow-up-circle-outline" size={26} color={colors.primary} />
+          }
         </TouchableOpacity>
       </View>
 
       {/* Canvas area */}
       <View style={{ flex: 1, overflow: 'hidden' }}>
-        <GestureCanvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale}>
-          <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} />
+        <GestureCanvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS}>
+          <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
         </GestureCanvas>
-        {/* Tap outside to close any open menu panel */}
         {activeTool !== 'select' && (
           <TouchableOpacity
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -189,15 +255,13 @@ export default function EditorScreen() {
       {/* Bottom controls */}
       <View style={{ backgroundColor: 'white' }}>
         {activeTool === 'background' && <BackgroundPicker />}
-        {activeTool === 'frame' && <FramePicker />}
-        {activeTool === 'layers' && <LayerPanel />}
+        {activeTool === 'frame'      && <FramePicker />}
+        {activeTool === 'sticker'    && <StickerPicker />}
+        {activeTool === 'layers'     && <LayerPanel />}
         {activeTool === 'text' && !selectedIsText && (
           <View className="bg-white border-t border-gray-200 px-4 py-3">
             <Text className="text-sm font-semibold text-gray-500 mb-3">テキスト</Text>
-            <TouchableOpacity
-              onPress={openTextModal}
-              className="bg-primary rounded-xl py-3 items-center"
-            >
+            <TouchableOpacity onPress={openTextModal} className="bg-primary rounded-xl py-3 items-center">
               <Text className="text-white font-semibold">テキストを追加</Text>
             </TouchableOpacity>
           </View>
@@ -205,7 +269,6 @@ export default function EditorScreen() {
         {selectedIsText && activeTool === 'text' && (
           <TextEditPanel onClose={() => { selectLayer(null); setActiveTool('select'); }} />
         )}
-
         <Toolbar onMediaPress={handleMediaPick} />
       </View>
 
@@ -228,17 +291,13 @@ export default function EditorScreen() {
               autoFocus
               multiline
             />
-            <TouchableOpacity
-              onPress={handleAddText}
-              className="bg-primary rounded-xl py-3 items-center"
-            >
+            <TouchableOpacity onPress={handleAddText} className="bg-primary rounded-xl py-3 items-center">
               <Text className="text-white font-semibold">追加</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Image / Video Crop Modal */}
       {cropPending && (
         <ImageCropModal
           visible={true}

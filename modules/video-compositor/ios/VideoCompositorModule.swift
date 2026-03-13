@@ -80,6 +80,9 @@ private class VideoCompositor {
     screenRect: CGRect,   // pixels, UIKit coords (top-left origin), relative to bgImage
     outputPath: String
   ) async throws -> String {
+    #if targetEnvironment(simulator)
+    throw CompositorError.exportFailed("動画エクスポートはシミュレータでは利用できません。実機でお試しください。")
+    #endif
     let bgFile  = stripScheme(bgPath)
     let vidFile = stripScheme(videoPath)
     let outFile = stripScheme(outputPath)
@@ -191,18 +194,26 @@ private class VideoCompositor {
     let outURL = URL(fileURLWithPath: outFile)
     try? FileManager.default.removeItem(at: outURL)
 
+    // AVAssetExportPreset1920x1080 forces full H.264 encoding, which is required
+    // when using animationTool AND is compatible with .mp4 output.
+    // AVAssetExportPresetHighestQuality targets QuickTime (.mov) only and will
+    // fail when outputFileType is .mp4.
     guard let exporter = AVAssetExportSession(
       asset: composition,
-      presetName: AVAssetExportPresetHighestQuality
+      presetName: AVAssetExportPreset1920x1080
     ) else {
       throw CompositorError.exportSessionCreationFailed
     }
 
-    exporter.outputURL       = outURL
-    exporter.outputFileType  = .mp4
+    exporter.outputURL        = outURL
+    exporter.outputFileType   = .mp4
     exporter.videoComposition = videoComposition
 
-    await exporter.export()
+    // exportAsynchronously works on iOS 15.1+.
+    // The iOS 18+ export() async API is not used to keep backwards compatibility.
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      exporter.exportAsynchronously { continuation.resume() }
+    }
 
     guard exporter.status == .completed else {
       let msg = exporter.error?.localizedDescription ?? "unknown"

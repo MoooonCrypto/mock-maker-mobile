@@ -10,24 +10,36 @@ interface Props {
   dragOffsetX: SharedValue<number>;
   dragOffsetY: SharedValue<number>;
   pinchScale:  SharedValue<number>;
+  frameDragX:  SharedValue<number>;
+  frameDragY:  SharedValue<number>;
+  framePinchS: SharedValue<number>;
 }
 
-export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale }: Props) {
+export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const canvasHeight = screenWidth * 1.5;
 
-  const layers         = useEditorStore((s) => s.layers);
+  const layers          = useEditorStore((s) => s.layers);
   const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
-  const updateLayer    = useEditorStore((s) => s.updateLayer);
-  const selectLayer    = useEditorStore((s) => s.selectLayer);
+  const updateLayer     = useEditorStore((s) => s.updateLayer);
+  const selectLayer     = useEditorStore((s) => s.selectLayer);
+  const frameScreenRect = useEditorStore((s) => s.frameScreenRect);
+  const selectedFrameId = useEditorStore((s) => s.selectedFrameId);
+  const frameEnabled    = selectedFrameId !== 'none';
+  const activeTool      = useEditorStore((s) => s.activeTool);
+  const framePosition   = useEditorStore((s) => s.framePosition);
+  const setFramePosition = useEditorStore((s) => s.setFramePosition);
+  const frameScale      = useEditorStore((s) => s.frameScale);
+  const setFrameScale   = useEditorStore((s) => s.setFrameScale);
 
-  // Sync selectedLayerId → SharedValue so worklets can read it
-  const selectedIdSV = useSharedValue(selectedLayerId ?? '');
-  useEffect(() => {
-    selectedIdSV.value = selectedLayerId ?? '';
-  }, [selectedLayerId]);
+  // Sync JS values → SharedValues so worklets can read them
+  const selectedIdSV  = useSharedValue(selectedLayerId ?? '');
+  const activeToolSV  = useSharedValue(activeTool);
 
-  // ─── Drag ────────────────────────────────────────────────────────────────
+  useEffect(() => { selectedIdSV.value = selectedLayerId ?? ''; }, [selectedLayerId]);
+  useEffect(() => { activeToolSV.value = activeTool; }, [activeTool]);
+
+  // ─── Layer drag ──────────────────────────────────────────────────────────
 
   const commitDrag = useCallback((layerId: string, dx: number, dy: number) => {
     const layer = layers.find((l) => l.id === layerId);
@@ -40,20 +52,36 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale }
     dragOffsetY.value = 0;
   }, [layers, updateLayer, dragOffsetX, dragOffsetY]);
 
-  // Pan runs on the UI thread — onUpdate only sets SharedValues (no runOnJS needed)
+  // ─── Frame drag ──────────────────────────────────────────────────────────
+
+  const commitFrameDrag = useCallback((dx: number, dy: number) => {
+    setFramePosition({ x: framePosition.x + dx, y: framePosition.y + dy });
+    frameDragX.value = 0;
+    frameDragY.value = 0;
+  }, [framePosition, setFramePosition, frameDragX, frameDragY]);
+
+  // ─── Pan ─────────────────────────────────────────────────────────────────
+
   const pan = Gesture.Pan()
     .onBegin(() => {
       dragOffsetX.value = 0;
       dragOffsetY.value = 0;
+      frameDragX.value  = 0;
+      frameDragY.value  = 0;
     })
     .onUpdate((e) => {
-      if (selectedIdSV.value) {
+      if (activeToolSV.value === 'frame') {
+        frameDragX.value = e.translationX;
+        frameDragY.value = e.translationY;
+      } else if (selectedIdSV.value) {
         dragOffsetX.value = e.translationX;
         dragOffsetY.value = e.translationY;
       }
     })
     .onEnd((e) => {
-      if (selectedIdSV.value) {
+      if (activeToolSV.value === 'frame') {
+        runOnJS(commitFrameDrag)(e.translationX, e.translationY);
+      } else if (selectedIdSV.value) {
         runOnJS(commitDrag)(selectedIdSV.value, e.translationX, e.translationY);
       } else {
         dragOffsetX.value = 0;
@@ -62,7 +90,7 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale }
     })
     .minDistance(5);
 
-  // ─── Pinch ───────────────────────────────────────────────────────────────
+  // ─── Layer scale ──────────────────────────────────────────────────────────
 
   const startScaleRef = useRef(1);
 
@@ -81,18 +109,48 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale }
     pinchScale.value = 1;
   }, [layers, updateLayer, pinchScale]);
 
+  // ─── Frame scale ─────────────────────────────────────────────────────────
+
+  const frameStartScaleRef = useRef(1);
+
+  const captureFrameStartScale = useCallback(() => {
+    frameStartScaleRef.current = frameScale;
+  }, [frameScale]);
+
+  const commitFrameScale = useCallback((scale: number) => {
+    const clamped = Math.min(Math.max(frameStartScaleRef.current * scale, 0.3), 2.0);
+    setFrameScale(clamped);
+    framePinchS.value = 1;
+  }, [setFrameScale, framePinchS]);
+
+  // ─── Pinch ────────────────────────────────────────────────────────────────
+
   const pinch = Gesture.Pinch()
     .runOnJS(true)
     .onBegin(() => {
-      captureStartScale();
-      pinchScale.value = 1;
+      if (activeTool === 'frame') {
+        captureFrameStartScale();
+        framePinchS.value = 1;
+      } else {
+        captureStartScale();
+        pinchScale.value = 1;
+      }
     })
     .onUpdate((e) => {
-      if (selectedIdSV.value) pinchScale.value = e.scale;
+      if (activeToolSV.value === 'frame') {
+        framePinchS.value = e.scale;
+      } else if (selectedIdSV.value) {
+        pinchScale.value = e.scale;
+      }
     })
     .onEnd((e) => {
-      if (selectedIdSV.value) commitScale(selectedIdSV.value, e.scale);
-      else pinchScale.value = 1;
+      if (activeToolSV.value === 'frame') {
+        commitFrameScale(e.scale);
+      } else if (selectedIdSV.value) {
+        commitScale(selectedIdSV.value, e.scale);
+      } else {
+        pinchScale.value = 1;
+      }
     });
 
   // ─── Tap (layer selection) ────────────────────────────────────────────────
@@ -104,10 +162,21 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale }
 
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i];
-      const lx    = centerX + layer.position.x;
-      const ly    = centerY + layer.position.y;
-      const halfW = layer.size.width  * 0.5;
-      const halfH = layer.size.height * 0.5;
+
+      let lx: number, ly: number, halfW: number, halfH: number;
+
+      if (layer.type !== 'text' && layer.type !== 'sticker' && frameEnabled && frameScreenRect) {
+        lx    = frameScreenRect.x + frameScreenRect.width  / 2;
+        ly    = frameScreenRect.y + frameScreenRect.height / 2;
+        halfW = frameScreenRect.width  / 2;
+        halfH = frameScreenRect.height / 2;
+      } else {
+        lx    = centerX + layer.position.x;
+        ly    = centerY + layer.position.y;
+        halfW = layer.size.width  * 0.5;
+        halfH = layer.size.height * 0.5;
+      }
+
       if (e.x >= lx - halfW && e.x <= lx + halfW &&
           e.y >= ly - halfH && e.y <= ly + halfH) {
         found = layer.id;

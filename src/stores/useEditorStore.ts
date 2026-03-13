@@ -5,7 +5,7 @@ import { Layer, Background, ShadowConfig, StrokeConfig } from '../types';
 
 type ScreenRect = { x: number; y: number; width: number; height: number };
 
-export type FrameId = 'iphone' | 'iphone-se' | 'none';
+export type FrameId = 'iphone' | 'iphone-se' | 'app-icon' | 'none';
 
 export type FrameScreenType = 'transparent' | 'opaque' | null;
 
@@ -16,10 +16,11 @@ interface EditorState {
   frameEnabled: boolean;
   selectedFrameId: FrameId;
   frameScale: number;
+  framePosition: { x: number; y: number };
   frameScreenRect: ScreenRect | null;
   frameScreenType: FrameScreenType;
   background: Background;
-  activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame';
+  activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame' | 'sticker';
   canvasRef: RefObject<CanvasRef | null> | null;
 
   setSessionName: (name: string) => void;
@@ -31,9 +32,11 @@ interface EditorState {
   setFrameEnabled: (enabled: boolean) => void;
   setSelectedFrameId: (id: FrameId) => void;
   setFrameScale: (scale: number) => void;
+  setFramePosition: (pos: { x: number; y: number }) => void;
   setFrameScreenRect: (rect: ScreenRect | null, type: FrameScreenType) => void;
   setBackground: (bg: Background) => void;
   setActiveTool: (tool: EditorState['activeTool']) => void;
+  addStickerLayer: (key: string, size: { width: number; height: number }) => void;
   setCanvasRef: (ref: RefObject<CanvasRef | null>) => void;
   reset: () => void;
 }
@@ -84,6 +87,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   frameEnabled: true,
   selectedFrameId: 'iphone',
   frameScale: 1.0,
+  framePosition: { x: 0, y: 0 },
   frameScreenRect: null,
   frameScreenType: null,
   background: defaultBackground,
@@ -104,11 +108,24 @@ export const useEditorStore = create<EditorState>((set) => ({
     })),
   selectLayer: (id) => set({ selectedLayerId: id }),
   setFrameEnabled: (enabled) => set({ frameEnabled: enabled }),
-  setSelectedFrameId: (id) => set({ selectedFrameId: id, frameEnabled: id !== 'none', frameScale: 1.0, frameScreenRect: null, frameScreenType: null }),
+  setSelectedFrameId: (id) => set({
+    selectedFrameId: id,
+    frameEnabled: id !== 'none',
+    frameScale: 1.0,
+    framePosition: { x: 0, y: 0 },
+    frameScreenRect: null,
+    frameScreenType: null,
+  }),
   setFrameScale: (scale) => set({ frameScale: scale }),
+  setFramePosition: (pos) => set({ framePosition: pos }),
   setFrameScreenRect: (rect, type) => set({ frameScreenRect: rect, frameScreenType: type }),
   setBackground: (bg) => set({ background: bg }),
   setActiveTool: (tool) => set({ activeTool: tool }),
+  addStickerLayer: (key, size) =>
+    set((s) => {
+      const layer = createDefaultLayer('sticker', key, size);
+      return { layers: [...s.layers, layer], selectedLayerId: layer.id };
+    }),
   setCanvasRef: (ref) => set({ canvasRef: ref }),
   reset: () =>
     set({
@@ -118,6 +135,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       frameEnabled: true,
       selectedFrameId: 'iphone',
       frameScale: 1.0,
+      framePosition: { x: 0, y: 0 },
       frameScreenRect: null,
       frameScreenType: null,
       background: defaultBackground,

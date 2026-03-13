@@ -4,6 +4,7 @@ import {
   Canvas as SkiaCanvas,
   useCanvasRef,
   Rect,
+  RoundedRect,
   LinearGradient,
   vec,
   Image,
@@ -96,16 +97,14 @@ import {
 import { useEditorStore } from '@/stores/useEditorStore';
 import { VideoOverlay } from './VideoOverlay';
 import type { FrameId, FrameScreenType } from '@/stores/useEditorStore';
+import { STICKER_ASSETS } from '@/constants/stickers';
 import type { Layer } from '@/types';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
-// Static require (Metro requires static path at bundle time)
 const FRAME_IMAGE_IPHONE = require('../../../assets/frame_img.png');
 
-// Hardcoded screen pixel bounds for frames where runtime detection is unreliable.
-// Values derived from direct pixel analysis of the PNG files.
-//   frame_img.png  (1017×1680): white opaque screen at x=228–808, y=216–1463
-//   frame_img2.png (1050×1934): transparent screen — reliable via center-outward scan
+// Hardcoded screen pixel bounds for the iPhone frame PNG.
+//   frame_img.png (1017×1680): opaque screen at x=228–808, y=216–1463
 const FRAME_HARDCODED_BOUNDS: Partial<Record<FrameId, {
   minX: number; minY: number; maxX: number; maxY: number;
   type: 'opaque' | 'transparent';
@@ -113,15 +112,24 @@ const FRAME_HARDCODED_BOUNDS: Partial<Record<FrameId, {
   'iphone': { minX: 228, minY: 216, maxX: 808, maxY: 1463, type: 'opaque' },
 };
 
+// Corner radius ratio per frame type (fraction of screenRect.width)
+function frameClipCornerRatio(frameId: FrameId): number {
+  if (frameId === 'app-icon') return 0.22;
+  return 0.11; // iphone
+}
+
 // ─── Canvas (public) ────────────────────────────────────────────────────────
 
 interface CanvasProps {
   dragOffsetX: SharedValue<number>;
   dragOffsetY: SharedValue<number>;
   pinchScale:  SharedValue<number>;
+  frameDragX:  SharedValue<number>;
+  frameDragY:  SharedValue<number>;
+  framePinchS: SharedValue<number>;
 }
 
-export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
+export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: CanvasProps) {
   const { width: screenWidth } = useWindowDimensions();
   const canvasWidth  = screenWidth;
   const canvasHeight = screenWidth * 1.5;
@@ -137,54 +145,99 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
   const selectedLayerId    = useEditorStore((s) => s.selectedLayerId);
   const frameScreenType    = useEditorStore((s) => s.frameScreenType);
   const frameScale         = useEditorStore((s) => s.frameScale);
+  const framePosition      = useEditorStore((s) => s.framePosition);
 
   const frameImage = useImage(FRAME_IMAGE_IPHONE);
 
-  // Compute how to draw the frame image on the canvas (uniform fit, centered, scaled by frameScale)
+  // iPhone frame layout (uniform fit, centered, with position offset)
   const frameLayout = useMemo(() => {
-    if (!frameImage) return null;
+    if (!frameImage || selectedFrameId !== 'iphone') return null;
     const imgW = frameImage.width();
     const imgH = frameImage.height();
     const baseScale  = Math.min(canvasWidth / imgW, canvasHeight / imgH);
     const scale      = baseScale * frameScale;
     const drawWidth  = imgW * scale;
     const drawHeight = imgH * scale;
-    const drawX = (canvasWidth  - drawWidth)  / 2;
-    const drawY = (canvasHeight - drawHeight) / 2;
+    const drawX = (canvasWidth  - drawWidth)  / 2 + framePosition.x;
+    const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
     return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
-  }, [frameImage, canvasWidth, canvasHeight, frameScale]);
+  }, [frameImage, canvasWidth, canvasHeight, frameScale, framePosition, selectedFrameId]);
 
-  // Detected screen bounds in image-pixel coordinates.
-  // Recompute canvas-space screenRect whenever layout or frame changes.
-  // Uses hardcoded pixel bounds for 'iphone' (no pixel scanning needed).
+  // App-icon frame layout (square, centered, with position offset)
+  const appIconLayout = useMemo(() => {
+    if (selectedFrameId !== 'app-icon') return null;
+    const size = Math.min(canvasWidth, canvasHeight) * 0.55 * frameScale;
+    const x = (canvasWidth  - size) / 2 + framePosition.x;
+    const y = (canvasHeight - size) / 2 + framePosition.y;
+    const cr = size * 0.22;
+    return { x, y, size, cr };
+  }, [selectedFrameId, canvasWidth, canvasHeight, frameScale, framePosition]);
+
+  // Update frameScreenRect whenever frame layout changes
   useEffect(() => {
-    if (!frameEnabled || !frameLayout) {
+    if (!frameEnabled) {
       setFrameScreenRect(null, null);
       return;
     }
-    const { drawX, drawY, scale } = frameLayout;
-    const hardcoded = FRAME_HARDCODED_BOUNDS[selectedFrameId];
-    if (!hardcoded) {
-      setFrameScreenRect(null, null);
+
+    if (selectedFrameId === 'app-icon' && appIconLayout) {
+      setFrameScreenRect({
+        x: appIconLayout.x,
+        y: appIconLayout.y,
+        width: appIconLayout.size,
+        height: appIconLayout.size,
+      }, 'transparent');
       return;
     }
-    const { minX, minY, maxX, maxY, type } = hardcoded;
-    setFrameScreenRect({
-      x:      drawX + minX * scale,
-      y:      drawY + minY * scale,
-      width:  (maxX - minX + 1) * scale,
-      height: (maxY - minY + 1) * scale,
-    }, type);
-  }, [frameLayout, frameEnabled, selectedFrameId]);
+
+    if (frameLayout) {
+      const { drawX, drawY, scale } = frameLayout;
+      const hardcoded = FRAME_HARDCODED_BOUNDS[selectedFrameId];
+      if (!hardcoded) { setFrameScreenRect(null, null); return; }
+      const { minX, minY, maxX, maxY, type } = hardcoded;
+      setFrameScreenRect({
+        x:      drawX + minX * scale,
+        y:      drawY + minY * scale,
+        width:  (maxX - minX + 1) * scale,
+        height: (maxY - minY + 1) * scale,
+      }, type);
+    }
+  }, [frameLayout, appIconLayout, frameEnabled, selectedFrameId]);
 
   useEffect(() => { setCanvasRef(canvasRef); }, [canvasRef]);
 
-  const screenRect = frameEnabled ? frameScreenRect : null;
+  // Compute screenRect directly for rendering — app-icon uses appIconLayout directly
+  // to avoid store update timing issues. iPhone frame uses the stored rect (pixel-detected).
+  const screenRect = useMemo(() => {
+    if (!frameEnabled) return null;
+    if (selectedFrameId === 'app-icon' && appIconLayout) {
+      return {
+        x: appIconLayout.x,
+        y: appIconLayout.y,
+        width:  appIconLayout.size,
+        height: appIconLayout.size,
+      };
+    }
+    return frameScreenRect;
+  }, [frameEnabled, selectedFrameId, appIconLayout, frameScreenRect]);
+
+  const clipCrRatio = frameClipCornerRatio(selectedFrameId);
+
+  // Frame drag/pinch transforms (applied as Group transform on the frame)
+  const frameDragTransform = useDerivedValue(() => [
+    { translateX: frameDragX.value },
+    { translateY: frameDragY.value },
+  ]);
+
+  const framePinchOrigin = useDerivedValue(() => ({
+    x: canvasWidth  / 2 + framePosition.x + frameDragX.value,
+    y: canvasHeight / 2 + framePosition.y + frameDragY.value,
+  }));
+  const framePinchTransform = useDerivedValue(() => [{ scale: framePinchS.value }]);
 
   return (
     <View style={{ width: canvasWidth, height: canvasHeight }}>
 
-      {/* Skia: background → image layers → frame PNG → text layers */}
       <SkiaCanvas ref={canvasRef} style={{ width: canvasWidth, height: canvasHeight }}>
         {/* Background */}
         {background.type === 'solid' && (
@@ -203,20 +256,54 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
           <BackgroundImageRenderer uri={background.imageUri} width={canvasWidth} height={canvasHeight} />
         )}
 
-        {/* Frame PNG first — bezel area is opaque, screen area is transparent cutout */}
-        {frameEnabled && frameImage && frameLayout && (
-          <Image
-            image={frameImage}
-            x={frameLayout.drawX}
-            y={frameLayout.drawY}
-            width={frameLayout.drawWidth}
-            height={frameLayout.drawHeight}
-            fit="fill"
-          />
+        {/* iPhone frame PNG — drawn FIRST; screen area is opaque white, bezel is transparent */}
+        {selectedFrameId === 'iphone' && frameImage && frameLayout && (
+          <Group origin={framePinchOrigin} transform={framePinchTransform}>
+            <Group transform={frameDragTransform}>
+              <Image
+                image={frameImage}
+                x={frameLayout.drawX}
+                y={frameLayout.drawY}
+                width={frameLayout.drawWidth}
+                height={frameLayout.drawHeight}
+                fit="fill"
+              />
+            </Group>
+          </Group>
         )}
 
-        {/* Image layers — drawn on top of frame, visible through the transparent screen area */}
-        {layers.filter((l) => l.type !== 'text').map((layer) => (
+        {/* App-icon frame — rounded rect border + shadow */}
+        {selectedFrameId === 'app-icon' && appIconLayout && (
+          <Group origin={framePinchOrigin} transform={framePinchTransform}>
+            <Group transform={frameDragTransform}>
+              {/* Drop shadow */}
+              <RoundedRect
+                x={appIconLayout.x}
+                y={appIconLayout.y}
+                width={appIconLayout.size}
+                height={appIconLayout.size}
+                r={appIconLayout.cr}
+              >
+                <Shadow dx={0} dy={4} blur={20} color="rgba(0,0,0,0.30)" />
+                <Paint color="transparent" />
+              </RoundedRect>
+              {/* Border */}
+              <RoundedRect
+                x={appIconLayout.x}
+                y={appIconLayout.y}
+                width={appIconLayout.size}
+                height={appIconLayout.size}
+                r={appIconLayout.cr}
+                style="stroke"
+                strokeWidth={2}
+                color="rgba(148,163,184,0.8)"
+              />
+            </Group>
+          </Group>
+        )}
+
+        {/* Image/video layers — drawn AFTER frame; Group clip confines image to screenRect */}
+        {layers.filter((l) => l.type !== 'text' && l.type !== 'sticker').map((layer) => (
           <LayerRenderer
             key={layer.id}
             layer={layer}
@@ -224,6 +311,7 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
             canvasHeight={canvasHeight}
             screenRect={screenRect}
             frameScreenType={frameScreenType}
+            clipCrRatio={clipCrRatio}
             isSelected={layer.id === selectedLayerId}
             dragOffsetX={dragOffsetX}
             dragOffsetY={dragOffsetY}
@@ -231,7 +319,7 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
           />
         ))}
 
-        {/* Text layers — on top of everything */}
+        {/* Text layers — on top of frame */}
         {layers.filter((l) => l.type === 'text').map((layer) => (
           <LayerRenderer
             key={layer.id}
@@ -240,6 +328,21 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale }: CanvasProps) {
             canvasHeight={canvasHeight}
             screenRect={screenRect}
             frameScreenType={frameScreenType}
+            clipCrRatio={clipCrRatio}
+            isSelected={layer.id === selectedLayerId}
+            dragOffsetX={dragOffsetX}
+            dragOffsetY={dragOffsetY}
+            pinchScale={pinchScale}
+          />
+        ))}
+
+        {/* Sticker layers — topmost, never clipped */}
+        {layers.filter((l) => l.type === 'sticker').map((layer) => (
+          <StickerLayerRenderer
+            key={layer.id}
+            layer={layer}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
             isSelected={layer.id === selectedLayerId}
             dragOffsetX={dragOffsetX}
             dragOffsetY={dragOffsetY}
@@ -273,6 +376,7 @@ interface LayerRendererProps {
   canvasHeight: number;
   screenRect: ScreenRect | null;
   frameScreenType: FrameScreenType;
+  clipCrRatio: number;
   isSelected: boolean;
   dragOffsetX: SharedValue<number>;
   dragOffsetY: SharedValue<number>;
@@ -287,6 +391,55 @@ function LayerRenderer(props: LayerRendererProps) {
     return <ImageLayerRenderer {...props} />;
   }
   return null;
+}
+
+// ─── Sticker Layer ────────────────────────────────────────────────────────────
+
+interface StickerLayerRendererProps {
+  layer: Layer;
+  canvasWidth: number;
+  canvasHeight: number;
+  isSelected: boolean;
+  dragOffsetX: SharedValue<number>;
+  dragOffsetY: SharedValue<number>;
+  pinchScale:  SharedValue<number>;
+}
+
+function StickerLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragOffsetX, dragOffsetY, pinchScale }: StickerLayerRendererProps) {
+  const asset = STICKER_ASSETS[layer.uri];
+  const image = useImage(asset ?? null);
+
+  const drawW = layer.size.width;
+  const drawH = layer.size.height;
+  const drawX = canvasWidth  / 2 + layer.position.x - drawW / 2;
+  const drawY = canvasHeight / 2 + layer.position.y - drawH / 2;
+
+  const dragTransform = useDerivedValue(() => [
+    { translateX: isSelected ? dragOffsetX.value : 0 },
+    { translateY: isSelected ? dragOffsetY.value : 0 },
+  ]);
+
+  const scaleOrigin = useDerivedValue(() => ({
+    x: drawX + drawW / 2 + (isSelected ? dragOffsetX.value : 0),
+    y: drawY + drawH / 2 + (isSelected ? dragOffsetY.value : 0),
+  }));
+
+  const scaleTransform = useDerivedValue(() =>
+    isSelected ? [{ scale: pinchScale.value }] : []
+  );
+
+  if (!image) return null;
+
+  return (
+    <Group opacity={layer.opacity} origin={scaleOrigin} transform={scaleTransform}>
+      <Group transform={dragTransform}>
+        <Image image={image} x={drawX} y={drawY} width={drawW} height={drawH} fit="cover" />
+        {isSelected && (
+          <Rect x={drawX} y={drawY} width={drawW} height={drawH} color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
+        )}
+      </Group>
+    </Group>
+  );
 }
 
 // ─── Text helpers ─────────────────────────────────────────────────────────────
@@ -442,7 +595,6 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
   const blockCX    = canvasWidth  / 2 + layer.position.x;
   const firstBaseY = canvasHeight / 2 + layer.position.y;
 
-  // Selection bounding box
   const maxLineW = lines.length > 0 ? Math.max(...lines.map((l) => linePxWidth(l, fontSize))) : 0;
   const SEL_PAD  = 6;
   const selX = blockCX - maxLineW / 2 - SEL_PAD;
@@ -497,38 +649,32 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
 
 // ─── Image Layer ─────────────────────────────────────────────────────────────
 
-function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, screenRect, frameScreenType, isSelected, dragOffsetX, dragOffsetY, pinchScale }: LayerRendererProps) {
+function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, screenRect, clipCrRatio, isSelected, dragOffsetX, dragOffsetY, pinchScale }: LayerRendererProps) {
   const image = useImage(layer.uri);
 
   const hasCrop = layer.cropX !== undefined && layer.cropW !== undefined && layer.cropH !== undefined;
 
-  // Native image dimensions (use 1 as fallback to avoid division by zero)
   const imgNativeW = image?.width()  ?? 1;
   const imgNativeH = image?.height() ?? 1;
 
-  // Compute draw rect in canvas coordinates
   let drawX: number, drawY: number, drawW: number, drawH: number;
 
   if (hasCrop && screenRect) {
-    // Cover scale: take the larger of width/height scale so no gap is possible
     const scaleX = screenRect.width  / layer.cropW!;
     const scaleY = screenRect.height / layer.cropH!;
     const effectiveScale = Math.max(scaleX, scaleY);
     drawW = imgNativeW * effectiveScale;
     drawH = imgNativeH * effectiveScale;
-    // Align crop-region center to screen-rect center
     const cropCenterX = layer.cropX! + layer.cropW! / 2;
     const cropCenterY = layer.cropY! + layer.cropH! / 2;
     drawX = (screenRect.x + screenRect.width  / 2) - cropCenterX * effectiveScale;
     drawY = (screenRect.y + screenRect.height / 2) - cropCenterY * effectiveScale;
   } else if (screenRect) {
-    // Fallback: fill screenRect with cover
     drawX = screenRect.x;
     drawY = screenRect.y;
     drawW = screenRect.width;
     drawH = screenRect.height;
   } else {
-    // No frame — fit image within 90% of canvas, centered, draggable
     const ar = (layer.size.width || 1) / (layer.size.height || 1);
     const mw = canvasWidth * 0.9, mh = canvasHeight * 0.9;
     if (ar >= mw / mh) {
@@ -540,47 +686,50 @@ function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, screenRect, fram
     drawY = (canvasHeight - drawH) / 2 + layer.position.y;
   }
 
-  // Whether interactive drag/pinch is supported (only for free-floating layers)
   const interactiveMode = !hasCrop && !screenRect;
 
-  // Hooks (always unconditional)
   const dragTransform = useDerivedValue(() => [
     { translateX: isSelected && interactiveMode ? dragOffsetX.value : 0 },
     { translateY: isSelected && interactiveMode ? dragOffsetY.value : 0 },
   ]);
 
   const scaleOrigin = useDerivedValue(() => ({
-    x: drawX + drawW / 2,
-    y: drawY + drawH / 2,
+    x: (screenRect ? screenRect.x + screenRect.width  / 2 : drawX + drawW / 2),
+    y: (screenRect ? screenRect.y + screenRect.height / 2 : drawY + drawH / 2),
   }));
 
   const scaleTransform = useDerivedValue(() =>
     isSelected && interactiveMode ? [{ scale: pinchScale.value }] : []
   );
 
-  // Rounded rect clip matching the iPhone screen's corner radius
-  const clip = useMemo(() => {
-    if (!screenRect) return undefined;
-    const cr = screenRect.width * 0.11;
-    return Skia.RRectXY(
-      Skia.XYWHRect(screenRect.x, screenRect.y, screenRect.width, screenRect.height),
-      cr, cr,
-    );
-  }, [screenRect]);
-
   if (!image) return null;
 
-  const fitMode = hasCrop ? 'fill' : 'cover';
+  const selX = screenRect ? screenRect.x : drawX;
+  const selY = screenRect ? screenRect.y : drawY;
+  const selW = screenRect ? screenRect.width  : drawW;
+  const selH = screenRect ? screenRect.height : drawH;
+
+  const cr = screenRect ? screenRect.width * clipCrRatio : 0;
+  const clipRRect = screenRect
+    ? Skia.RRectXY(
+        Skia.XYWHRect(screenRect.x, screenRect.y, screenRect.width, screenRect.height),
+        cr, cr
+      )
+    : null;
 
   return (
-    <Group clip={clip}>
-      <Group opacity={layer.opacity} origin={scaleOrigin} transform={scaleTransform}>
-        <Group transform={dragTransform}>
-          <Image image={image} x={drawX} y={drawY} width={drawW} height={drawH} fit={fitMode} />
-          {isSelected && (
-            <Rect x={drawX} y={drawY} width={drawW} height={drawH} color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
-          )}
-        </Group>
+    <Group opacity={layer.opacity} origin={scaleOrigin} transform={scaleTransform}>
+      <Group transform={dragTransform}>
+        {clipRRect ? (
+          <Group clip={clipRRect}>
+            <Image image={image} x={drawX} y={drawY} width={drawW} height={drawH} fit={hasCrop ? 'fill' : 'cover'} />
+          </Group>
+        ) : (
+          <Image image={image} x={drawX} y={drawY} width={drawW} height={drawH} fit="cover" />
+        )}
+        {isSelected && !screenRect && (
+          <Rect x={selX} y={selY} width={selW} height={selH} color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
+        )}
       </Group>
     </Group>
   );

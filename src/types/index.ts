@@ -12,7 +12,7 @@ export interface Project {
 
 export interface Layer {
   id: string;
-  type: 'image' | 'video' | 'text';
+  type: 'image' | 'video' | 'text' | 'sticker';
   uri: string;
   position: { x: number; y: number };
   size: { width: number; height: number };

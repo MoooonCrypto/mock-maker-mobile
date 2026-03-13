@@ -7,7 +7,8 @@ import { colors } from '@/constants/theme';
 
 const FRAMES: { id: FrameId; label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'none',       label: 'なし',       sub: 'フレームなし',   icon: 'close-circle-outline' },
-  { id: 'iphone',     label: 'iPhone',     sub: '通常サイズ',     icon: 'phone-portrait-outline' },
+  { id: 'iphone',     label: 'iPhone',     sub: 'スクリーン',     icon: 'phone-portrait-outline' },
+  { id: 'app-icon',   label: 'App Icon',   sub: 'アイコン枠',     icon: 'grid-outline' },
 ];
 
 export function FramePicker() {
@@ -20,7 +21,7 @@ export function FramePicker() {
 
   return (
     <View className="bg-white border-t border-gray-200 px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-500 mb-3">デバイスフレーム</Text>
+      <Text className="text-sm font-semibold text-gray-500 mb-3">フレーム</Text>
 
       {/* Frame type selection */}
       <View className="flex-row gap-2 mb-4">
