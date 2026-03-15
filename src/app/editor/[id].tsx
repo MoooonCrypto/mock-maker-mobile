@@ -31,6 +31,7 @@ export default function EditorScreen() {
   const {
     sessionName,
     addLayer,
+    removeLayer,
     selectLayer,
     activeTool,
     setActiveTool,
@@ -189,6 +190,8 @@ export default function EditorScreen() {
 
   const handleCropConfirm = (crop: { cropX: number; cropY: number; cropW: number; cropH: number }) => {
     if (!cropPending) return;
+    // Remove existing image/video layers so new media replaces the old one
+    layers.filter((l) => l.type === 'image' || l.type === 'video').forEach((l) => removeLayer(l.id));
     const layer = createDefaultLayer('image', cropPending.uri, {
       width: cropPending.width,
       height: cropPending.height,
@@ -205,6 +208,8 @@ export default function EditorScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
+      // Remove existing image/video layers so new media replaces the old one
+      layers.filter((l) => l.type === 'image' || l.type === 'video').forEach((l) => removeLayer(l.id));
       addLayer(createDefaultLayer('video', asset.uri, {
         width:  asset.width  ?? 1080,
         height: asset.height ?? 1920,

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -7,16 +8,16 @@ import { colors } from '@/constants/theme';
 // ── Font catalog ──────────────────────────────────────────────────────────────
 const FONT_CATALOG = [
   // ── Japanese (全角対応) ───────────────────────────────────────────────────
-  { key: 'noto-sans-jp',  label: 'Noto Sans JP',     group: 'ja', supportsJa: true  },
-  { key: 'noto-serif-jp', label: 'Noto Serif JP',    group: 'ja', supportsJa: true  },
-  { key: 'm-plus-1p',     label: 'M PLUS 1p',        group: 'ja', supportsJa: true  },
-  { key: 'm-plus-r',      label: 'M PLUS Rounded',   group: 'ja', supportsJa: true  },
-  { key: 'biz-ud',        label: 'BIZ UDPGothic',    group: 'ja', supportsJa: true  },
-  { key: 'zen-kaku',      label: 'Zen Kaku Gothic',  group: 'ja', supportsJa: true  },
-  { key: 'sawarabi-g',    label: 'Sawarabi Gothic',  group: 'ja', supportsJa: true  },
-  { key: 'sawarabi-m',    label: 'Sawarabi Mincho',  group: 'ja', supportsJa: true  },
-  { key: 'kosugi-m',      label: 'Kosugi Maru',      group: 'ja', supportsJa: true  },
-  { key: 'dot-gothic',    label: 'DotGothic16',      group: 'ja', supportsJa: true  },
+  { key: 'noto-sans-jp',  label: 'Noto Sans JP',    group: 'ja', supportsJa: true  },
+  { key: 'noto-serif-jp', label: 'Noto Serif JP',   group: 'ja', supportsJa: true  },
+  { key: 'm-plus-1p',     label: 'M PLUS 1p',       group: 'ja', supportsJa: true  },
+  { key: 'm-plus-r',      label: 'M PLUS Rounded',  group: 'ja', supportsJa: true  },
+  { key: 'biz-ud',        label: 'BIZ UDPGothic',   group: 'ja', supportsJa: true  },
+  { key: 'zen-kaku',      label: 'Zen Kaku Gothic', group: 'ja', supportsJa: true  },
+  { key: 'sawarabi-g',    label: 'Sawarabi Gothic', group: 'ja', supportsJa: true  },
+  { key: 'sawarabi-m',    label: 'Sawarabi Mincho', group: 'ja', supportsJa: true  },
+  { key: 'kosugi-m',      label: 'Kosugi Maru',     group: 'ja', supportsJa: true  },
+  { key: 'dot-gothic',    label: 'DotGothic16',     group: 'ja', supportsJa: true  },
   // ── Latin (半角) ─────────────────────────────────────────────────────────
   { key: 'roboto',        label: 'Roboto',           group: 'en', supportsJa: false },
   { key: 'inter',         label: 'Inter',            group: 'en', supportsJa: false },
@@ -32,7 +33,7 @@ const FONT_CATALOG = [
 
 type FontKey = typeof FONT_CATALOG[number]['key'];
 
-// React Native font family names (from @expo-google-fonts loaded in Canvas.tsx)
+// React Native font family names (loaded via useFonts in Canvas.tsx)
 const FONT_RN_FAMILY: Record<FontKey, string> = {
   'noto-sans-jp':  'NotoSansJP_400Regular',
   'noto-serif-jp': 'NotoSerifJP_400Regular',
@@ -56,22 +57,52 @@ const FONT_RN_FAMILY: Record<FontKey, string> = {
   'merriweather':  'Merriweather_400Regular',
 };
 
+const FONT_RN_FAMILY_BOLD: Record<FontKey, string> = {
+  'noto-sans-jp':  'NotoSansJP_700Bold',
+  'noto-serif-jp': 'NotoSerifJP_700Bold',
+  'm-plus-1p':     'MPLUS1p_700Bold',
+  'm-plus-r':      'MPLUSRounded1c_700Bold',
+  'biz-ud':        'BIZUDPGothic_700Bold',
+  'zen-kaku':      'ZenKakuGothicNew_700Bold',
+  'sawarabi-g':    'SawarabiGothic_400Regular',  // no bold variant
+  'sawarabi-m':    'SawarabiMincho_400Regular',  // no bold variant
+  'kosugi-m':      'KosugiMaru_400Regular',       // no bold variant
+  'dot-gothic':    'DotGothic16_400Regular',      // no bold variant
+  'roboto':        'Roboto',
+  'inter':         'Inter_700Bold',
+  'montserrat':    'Montserrat_700Bold',
+  'lato':          'Lato_700Bold',
+  'open-sans':     'OpenSans_700Bold',
+  'oswald':        'Oswald_700Bold',
+  'raleway':       'Raleway_700Bold',
+  'nunito':        'Nunito_700Bold',
+  'playfair':      'PlayfairDisplay_700Bold',
+  'merriweather':  'Merriweather_700Bold',
+};
+
+
+// Pick a preview background that contrasts with the text color
+function previewBg(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 140 ? '#1f2937' : '#f1f5f9';
+}
+
 function containsJapanese(text: string): boolean {
   return /[\u3000-\u9FFF\uF900-\uFAFF\u30A0-\u30FF\u3040-\u309F\uFF00-\uFFEF]/.test(text);
 }
 
 const FONT_SIZES = [14, 18, 24, 32, 40, 56, 72];
-const FONT_WEIGHTS = [
-  { key: 'normal' as const, label: 'Regular' },
-  { key: 'bold'   as const, label: 'Bold' },
-  { key: 'black'  as const, label: 'Black' },
-];
 const TEXT_COLORS = ['#ffffff', '#1a1a1a', '#2b8cee', '#ef4444', '#22c55e', '#f59e0b', '#a855f7'];
 
 export function TextEditPanel({ onClose }: { onClose?: () => void }) {
   const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
   const layers          = useEditorStore((s) => s.layers);
   const updateLayer     = useEditorStore((s) => s.updateLayer);
+
+  const [fontDropdownOpen, setFontDropdownOpen] = useState(false);
 
   const layer = layers.find((l) => l.id === selectedLayerId && l.type === 'text');
   if (!layer) return null;
@@ -80,19 +111,137 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
   const fontFamily = (layer.fontFamily ?? 'noto-sans-jp') as FontKey;
   const fontWeight = layer.fontWeight  ?? 'normal';
   const textColor  = layer.textColor   ?? '#ffffff';
+  const underline  = layer.underline   ?? false;
+  const isBold     = fontWeight === 'bold' || fontWeight === 'black';
   const hasJa      = containsJapanese(layer.uri);
 
-  const visibleFonts = FONT_CATALOG.filter((f) => !hasJa || f.supportsJa);
+  const visibleFonts  = FONT_CATALOG.filter((f) => !hasJa || f.supportsJa);
+  const currentFont   = FONT_CATALOG.find((f) => f.key === fontFamily) ?? FONT_CATALOG[0];
 
   return (
-    <ScrollView style={{ maxHeight: 310 }} className="bg-white border-t border-gray-200">
+    <ScrollView style={{ maxHeight: 320 }} className="bg-white border-t border-gray-200" nestedScrollEnabled>
       <View className="px-4 pt-3 pb-4">
+
+        {/* Header */}
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-sm font-semibold text-gray-500">テキスト編集</Text>
           {onClose && (
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Text preview */}
+        <View
+          style={{
+            backgroundColor: previewBg(textColor),
+            borderRadius: 12,
+            height: 80,
+            marginBottom: 14,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            overflow: 'hidden',
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: isBold ? FONT_RN_FAMILY_BOLD[fontFamily] : FONT_RN_FAMILY[fontFamily],
+              fontSize: Math.min(fontSize, 52),
+              color: textColor,
+              textDecorationLine: underline ? 'underline' : 'none',
+            }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {layer.uri}
+          </Text>
+        </View>
+
+        {/* Font family — dropdown (vertical scroll, each name in its own typeface) */}
+        <View className="mb-3">
+          <Text className="text-sm text-gray-700 mb-2">フォント</Text>
+          <TouchableOpacity
+            onPress={() => setFontDropdownOpen((v) => !v)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: fontDropdownOpen ? colors.primary : '#e5e7eb',
+              backgroundColor: '#f9fafb',
+            }}
+          >
+            <Text
+              style={{ fontFamily: isBold ? FONT_RN_FAMILY_BOLD[fontFamily] : FONT_RN_FAMILY[fontFamily], fontSize: 17, color: '#1a1a1a', flex: 1 }}
+              numberOfLines={1}
+            >
+              {currentFont.label}
+            </Text>
+            <Ionicons
+              name={fontDropdownOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color="#9ca3af"
+              style={{ marginLeft: 8 }}
+            />
+          </TouchableOpacity>
+
+          {fontDropdownOpen && (
+            <ScrollView
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              style={{
+                maxHeight: 190,
+                marginTop: 4,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#e5e7eb',
+                backgroundColor: '#fff',
+              }}
+            >
+              {visibleFonts.map((opt, idx) => {
+                const isActive = fontFamily === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    onPress={() => {
+                      updateLayer(layer.id, { fontFamily: opt.key });
+                      setFontDropdownOpen(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                      borderBottomWidth: idx < visibleFonts.length - 1 ? 1 : 0,
+                      borderBottomColor: '#f3f4f6',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: FONT_RN_FAMILY[opt.key],
+                        fontSize: 17,
+                        color: isActive ? colors.primary : '#1a1a1a',
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isActive && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+          {hasJa && (
+            <Text className="text-xs text-gray-400 mt-1">日本語テキストのため日本語対応フォントのみ表示</Text>
           )}
         </View>
 
@@ -125,65 +274,38 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
           </View>
         </View>
 
-        {/* Font family — horizontal scroll, each name in its own font */}
+        {/* Style: Bold + Underline */}
         <View className="mb-3">
-          <Text className="text-sm text-gray-700 mb-2">フォント</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -16 }}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-          >
-            {visibleFonts.map((opt) => {
-              const isActive = fontFamily === opt.key;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  onPress={() => updateLayer(layer.id, { fontFamily: opt.key })}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: isActive ? colors.primary : '#e5e7eb',
-                    backgroundColor: isActive ? '#eff6ff' : '#f9fafb',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: 110,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONT_RN_FAMILY[opt.key],
-                      fontSize: 17,
-                      color: isActive ? colors.primary : '#1a1a1a',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {hasJa && (
-            <Text className="text-xs text-gray-400 mt-1 ml-1">日本語テキストのため日本語対応フォントのみ表示</Text>
-          )}
-        </View>
-
-        {/* Font weight */}
-        <View className="mb-3">
-          <Text className="text-sm text-gray-700 mb-2">ウェイト</Text>
-          <View className="flex-row bg-gray-100 rounded-lg overflow-hidden">
-            {FONT_WEIGHTS.map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => updateLayer(layer.id, { fontWeight: key })}
-                className={`flex-1 py-2 items-center ${fontWeight === key ? 'bg-primary' : ''}`}
-              >
-                <Text className={`text-sm font-medium ${fontWeight === key ? 'text-white' : 'text-gray-600'}`}>{label}</Text>
-              </TouchableOpacity>
-            ))}
+          <Text className="text-sm text-gray-700 mb-2">スタイル</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => updateLayer(layer.id, { fontWeight: isBold ? 'normal' : 'bold' })}
+              style={{
+                width: 46, height: 46,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor: isBold ? colors.primary : '#e5e7eb',
+                backgroundColor: isBold ? '#eff6ff' : '#f9fafb',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: '700', color: isBold ? colors.primary : '#6b7280' }}>B</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => updateLayer(layer.id, { underline: !underline })}
+              style={{
+                width: 46, height: 46,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor: underline ? colors.primary : '#e5e7eb',
+                backgroundColor: underline ? '#eff6ff' : '#f9fafb',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: '700', textDecorationLine: 'underline', color: underline ? colors.primary : '#6b7280' }}>U</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -205,6 +327,7 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
             ))}
           </View>
         </View>
+
       </View>
     </ScrollView>
   );

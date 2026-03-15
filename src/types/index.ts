@@ -29,6 +29,7 @@ export interface Layer {
   cropH?: number;
   // Text-only fields
   textColor?: string;
+  underline?: boolean;
   fontWeight?: 'normal' | 'bold' | 'black';
   fontFamily?: 'noto-sans-jp' | 'noto-serif-jp' | 'roboto' | 'inter' | 'lato' | 'montserrat' | 'oswald' | 'raleway' | 'nunito' | 'open-sans' | 'm-plus-1p' | 'm-plus-r' | 'biz-ud' | 'zen-kaku' | 'sawarabi-g' | 'sawarabi-m' | 'kosugi-m' | 'dot-gothic' | 'playfair' | 'merriweather';
 }

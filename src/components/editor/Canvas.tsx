@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { View, useWindowDimensions } from 'react-native';
+import { useFonts } from 'expo-font';
 import {
   Canvas as SkiaCanvas,
   useCanvasRef,
@@ -132,6 +133,30 @@ interface CanvasProps {
 export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: CanvasProps) {
   const { width: screenWidth } = useWindowDimensions();
   const canvasWidth  = screenWidth;
+
+  // Register all fonts as RN font families so TextEditPanel preview can use them
+  useFonts({
+    NotoSansJP_400Regular,    NotoSansJP_700Bold,
+    NotoSerifJP_400Regular,   NotoSerifJP_700Bold,
+    MPLUS1p_400Regular,       MPLUS1p_700Bold,
+    MPLUSRounded1c_400Regular, MPLUSRounded1c_700Bold,
+    BIZUDPGothic_400Regular,  BIZUDPGothic_700Bold,
+    ZenKakuGothicNew_400Regular, ZenKakuGothicNew_700Bold,
+    SawarabiGothic_400Regular,
+    SawarabiMincho_400Regular,
+    KosugiMaru_400Regular,
+    DotGothic16_400Regular,
+    Inter_400Regular,         Inter_700Bold,
+    Montserrat_400Regular,    Montserrat_700Bold,
+    Lato_400Regular,          Lato_700Bold,
+    OpenSans_400Regular,      OpenSans_700Bold,
+    Oswald_400Regular,        Oswald_700Bold,
+    Raleway_400Regular,       Raleway_700Bold,
+    Nunito_400Regular,        Nunito_700Bold,
+    PlayfairDisplay_400Regular, PlayfairDisplay_700Bold,
+    Merriweather_400Regular,  Merriweather_700Bold,
+    Roboto: require('../../../assets/fonts/Roboto-Regular.ttf'),
+  } as any);
   const canvasHeight = screenWidth * 1.5;
 
   const canvasRef          = useCanvasRef();
@@ -627,6 +652,8 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
           const lw = linePxWidth(line, fontSize);
           const lx = blockCX - lw / 2;
           const ly = firstBaseY + i * lineHeight;
+          const ulY = ly + fontSize * 0.12;
+          const ulH = Math.max(1, Math.round(fontSize * 0.07));
           return (
             <Group key={i}>
               {layer.shadow.enabled && (
@@ -639,6 +666,9 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
                 />
               )}
               <SkiaText x={lx} y={ly} text={line} font={font} color={layer.textColor ?? '#ffffff'} />
+              {layer.underline && (
+                <Rect x={lx} y={ulY} width={lw} height={ulH} color={layer.textColor ?? '#ffffff'} />
+              )}
             </Group>
           );
         })}
