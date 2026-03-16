@@ -1,5 +1,6 @@
 import { View, TouchableOpacity, Text } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
 
@@ -20,6 +21,7 @@ export function Toolbar({ onMediaPress }: Props) {
   const { activeTool, setActiveTool, selectedLayerId, removeLayer, selectLayer } = useEditorStore();
 
   const handlePress = (key: typeof tools[number]['key']) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (key === 'media') { onMediaPress(); return; }
     setActiveTool(activeTool === key ? 'select' : key);
   };
@@ -27,10 +29,10 @@ export function Toolbar({ onMediaPress }: Props) {
   const hasSelection = !!selectedLayerId;
 
   const handleDelete = () => {
-    if (selectedLayerId) {
-      removeLayer(selectedLayerId);
-      selectLayer(null);
-    }
+    if (!selectedLayerId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    removeLayer(selectedLayerId);
+    selectLayer(null);
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -132,32 +132,26 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
           )}
         </View>
 
-        {/* Text preview */}
-        <View
+        {/* Text edit input (doubles as preview) */}
+        <TextInput
+          value={layer.uri}
+          onChangeText={(t) => updateLayer(layer.id, { uri: t })}
           style={{
             backgroundColor: previewBg(textColor),
             borderRadius: 12,
             height: 80,
             marginBottom: 14,
-            justifyContent: 'center',
-            alignItems: 'center',
             paddingHorizontal: 16,
-            overflow: 'hidden',
+            fontFamily: isBold ? FONT_RN_FAMILY_BOLD[fontFamily] : FONT_RN_FAMILY[fontFamily],
+            fontSize: Math.min(fontSize, 36),
+            color: textColor,
+            textDecorationLine: underline ? 'underline' : 'none',
+            textAlign: 'center',
           }}
-        >
-          <Text
-            style={{
-              fontFamily: isBold ? FONT_RN_FAMILY_BOLD[fontFamily] : FONT_RN_FAMILY[fontFamily],
-              fontSize: Math.min(fontSize, 52),
-              color: textColor,
-              textDecorationLine: underline ? 'underline' : 'none',
-            }}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {layer.uri}
-          </Text>
-        </View>
+          multiline
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          placeholder="テキストを入力"
+        />
 
         {/* Font family — dropdown (vertical scroll, each name in its own typeface) */}
         <View className="mb-3">

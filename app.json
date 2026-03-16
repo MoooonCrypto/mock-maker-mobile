@@ -18,8 +18,7 @@
       "bundleIdentifier": "com.mockmaker.mobile",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
-        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
-        "NSCameraUsageDescription": "カメラへのアクセスは使用しません。"
+        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。"
       }
     },
     "android": {

@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
-import { useProjectStore } from '@/stores/useProjectStore';
 import { composeVideoWithFrame } from '@/services/videoCompositing';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
@@ -25,11 +25,9 @@ import { colors } from '@/constants/theme';
 
 export default function EditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
 
   const {
-    sessionName,
     addLayer,
     removeLayer,
     selectLayer,
@@ -45,7 +43,6 @@ export default function EditorScreen() {
   } = useEditorStore();
 
   const frameEnabled = selectedFrameId !== 'none';
-  const saveProject  = useProjectStore((s) => s.saveProject);
 
   const selectedLayer  = layers.find((l) => l.id === selectedLayerId);
   const selectedIsText = selectedLayer?.type === 'text';
@@ -68,20 +65,6 @@ export default function EditorScreen() {
   useEffect(() => {
     return () => reset();
   }, [id]);
-
-  // ─── Project save ──────────────────────────────────────────────────────────
-
-  const handleProjectSave = async () => {
-    setBusy(true);
-    try {
-      await saveProject({ id, name: sessionName, layers, background, selectedFrameId });
-      Alert.alert('保存完了', `「${sessionName}」を保存しました`);
-    } catch {
-      Alert.alert('エラー', '保存に失敗しました');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   // ─── Export ────────────────────────────────────────────────────────────────
 
@@ -124,9 +107,11 @@ export default function EditorScreen() {
 
         if (target === 'photos') {
           await MediaLibrary.saveToLibraryAsync(outputUri);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           Alert.alert('完了', '動画を写真アプリに保存しました');
         } else {
           await Sharing.shareAsync(outputUri, { mimeType: 'video/mp4' });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         }
       } else {
         // ── 画像のみ: PNG で書き出す ──
@@ -136,13 +121,16 @@ export default function EditorScreen() {
 
         if (target === 'photos') {
           await MediaLibrary.saveToLibraryAsync(file.uri);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           Alert.alert('完了', '写真アプリに保存しました');
         } else {
           await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         }
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       Alert.alert('エラー', `書き出しに失敗しました\n${msg}`);
     } finally {
       setBusy(false);
@@ -150,10 +138,9 @@ export default function EditorScreen() {
   };
 
   const handleSaveOptions = () => {
-    Alert.alert('保存 / 書き出し', null, [
+    Alert.alert('書き出し', null, [
       { text: '写真アプリに保存', onPress: () => exportTo('photos') },
       { text: 'ファイルに保存 / 共有', onPress: () => exportTo('files') },
-      { text: 'プロジェクトを保存', onPress: handleProjectSave },
       { text: 'キャンセル', style: 'cancel' },
     ]);
   };
@@ -229,12 +216,7 @@ export default function EditorScreen() {
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
-          {sessionName}
-        </Text>
+        <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={handleSaveOptions} disabled={busy} hitSlop={8}>
           {busy
             ? <ActivityIndicator size="small" color={colors.primary} />
