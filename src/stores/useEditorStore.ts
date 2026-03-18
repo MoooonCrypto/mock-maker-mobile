@@ -13,7 +13,6 @@ interface EditorState {
   sessionName: string;
   layers: Layer[];
   selectedLayerId: string | null;
-  frameEnabled: boolean;
   selectedFrameId: FrameId;
   frameScale: number;
   framePosition: { x: number; y: number };
@@ -29,7 +28,6 @@ interface EditorState {
   updateLayer: (id: string, updates: Partial<Layer>) => void;
   removeLayer: (id: string) => void;
   selectLayer: (id: string | null) => void;
-  setFrameEnabled: (enabled: boolean) => void;
   setSelectedFrameId: (id: FrameId) => void;
   setFrameScale: (scale: number) => void;
   setFramePosition: (pos: { x: number; y: number }) => void;
@@ -84,7 +82,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   sessionName: '無題のモックアップ',
   layers: [],
   selectedLayerId: null,
-  frameEnabled: true,
   selectedFrameId: 'iphone',
   frameScale: 1.0,
   framePosition: { x: 0, y: 0 },
@@ -107,10 +104,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedLayerId: s.selectedLayerId === id ? null : s.selectedLayerId,
     })),
   selectLayer: (id) => set({ selectedLayerId: id }),
-  setFrameEnabled: (enabled) => set({ frameEnabled: enabled }),
   setSelectedFrameId: (id) => set({
     selectedFrameId: id,
-    frameEnabled: id !== 'none',
     frameScale: 1.0,
     framePosition: { x: 0, y: 0 },
     frameScreenRect: null,
@@ -132,7 +127,6 @@ export const useEditorStore = create<EditorState>((set) => ({
       sessionName: '無題のモックアップ',
       layers: [],
       selectedLayerId: null,
-      frameEnabled: true,
       selectedFrameId: 'iphone',
       frameScale: 1.0,
       framePosition: { x: 0, y: 0 },

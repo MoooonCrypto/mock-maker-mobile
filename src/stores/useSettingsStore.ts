@@ -4,7 +4,7 @@ import { ExportSettings } from '../types';
 
 interface SettingsState {
   defaultExport: ExportSettings;
-  setDefaultExport: (settings: Partial<ExportSettings>) => void;
+  setDefaultExport: (settings: Partial<ExportSettings>) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 

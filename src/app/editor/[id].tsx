@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +22,15 @@ import { FramePicker } from '@/components/editor/FramePicker';
 import { StickerPicker } from '@/components/editor/StickerPicker';
 import { ImageCropModal } from '@/components/editor/ImageCropModal';
 import { colors } from '@/constants/theme';
+import MobileAds, {
+  InterstitialAd,
+  AdEventType,
+  TestIds,
+} from 'react-native-google-mobile-ads';
+
+const AD_UNIT_ID = __DEV__
+  ? TestIds.INTERSTITIAL
+  : 'ca-app-pub-2543814564794464/2351282112';
 
 export default function EditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,7 +45,6 @@ export default function EditorScreen() {
     layers,
     selectedLayerId,
     selectedFrameId,
-    background,
     frameScreenRect,
     canvasRef,
     reset,
@@ -62,9 +70,66 @@ export default function EditorScreen() {
     uri: string; width: number; height: number;
   } | null>(null);
 
+  // ─── Interstitial Ad ───────────────────────────────────────────────────────
+  const adLoadedRef     = useRef(false);
+  const pendingAlertRef = useRef<{ title: string; msg: string } | null>(null);
+  const interstitialRef = useRef<InterstitialAd | null>(null);
+  const retryTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCountRef   = useRef(0);
+  const MAX_RETRIES = 4;
+  const RETRY_DELAY_MS = 4000;
+
+  useEffect(() => {
+    const instance = InterstitialAd.createForAdRequest(AD_UNIT_ID, {
+      requestNonPersonalizedAdsOnly: true,
+    });
+    interstitialRef.current = instance;
+
+    const unsubLoad = instance.addAdEventListener(AdEventType.LOADED, () => {
+      retryCountRef.current = 0;
+      adLoadedRef.current = true;
+    });
+    const unsubError = instance.addAdEventListener(AdEventType.ERROR, () => {
+      adLoadedRef.current = false;
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current += 1;
+        retryTimerRef.current = setTimeout(() => instance.load(), RETRY_DELAY_MS);
+      }
+    });
+    const unsubClose = instance.addAdEventListener(AdEventType.CLOSED, () => {
+      adLoadedRef.current = false;
+      retryCountRef.current = 0;
+      instance.load();
+      if (pendingAlertRef.current) {
+        Alert.alert(pendingAlertRef.current.title, pendingAlertRef.current.msg);
+        pendingAlertRef.current = null;
+      }
+    });
+
+    MobileAds().initialize().then(() => {
+      instance.load();
+    });
+
+    return () => {
+      unsubLoad(); unsubError(); unsubClose();
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     return () => reset();
-  }, [id]);
+  }, [id, reset]);
+
+  // ─── Ad helper ─────────────────────────────────────────────────────────────
+
+  const showAdThenAlert = (title: string, msg: string) => {
+    if (adLoadedRef.current && interstitialRef.current) {
+      pendingAlertRef.current = { title, msg };
+      interstitialRef.current.show();
+    } else {
+      Alert.alert(title, msg);
+    }
+  };
 
   // ─── Export ────────────────────────────────────────────────────────────────
 
@@ -108,10 +173,11 @@ export default function EditorScreen() {
         if (target === 'photos') {
           await MediaLibrary.saveToLibraryAsync(outputUri);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          Alert.alert('完了', '動画を写真アプリに保存しました');
+          showAdThenAlert('完了', '動画を写真アプリに保存しました');
         } else {
           await Sharing.shareAsync(outputUri, { mimeType: 'video/mp4' });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          showAdThenAlert('完了', '共有しました');
         }
       } else {
         // ── 画像のみ: PNG で書き出す ──
@@ -122,10 +188,11 @@ export default function EditorScreen() {
         if (target === 'photos') {
           await MediaLibrary.saveToLibraryAsync(file.uri);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          Alert.alert('完了', '写真アプリに保存しました');
+          showAdThenAlert('完了', '写真アプリに保存しました');
         } else {
           await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          showAdThenAlert('完了', '共有しました');
         }
       }
     } catch (e: unknown) {
@@ -138,7 +205,7 @@ export default function EditorScreen() {
   };
 
   const handleSaveOptions = () => {
-    Alert.alert('書き出し', null, [
+    Alert.alert('書き出し', undefined, [
       { text: '写真アプリに保存', onPress: () => exportTo('photos') },
       { text: 'ファイルに保存 / 共有', onPress: () => exportTo('files') },
       { text: 'キャンセル', style: 'cancel' },

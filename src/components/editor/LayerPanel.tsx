@@ -1,11 +1,17 @@
+import { useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
+import type { FrameId } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
 
 export function LayerPanel() {
   const { layers, selectedLayerId, selectLayer, removeLayer, selectedFrameId, setSelectedFrameId, background, setActiveTool } = useEditorStore();
   const frameEnabled = selectedFrameId !== 'none';
+
+  // Remember the last active frame so toggling off/on restores it
+  const prevFrameIdRef = useRef<FrameId>(frameEnabled ? selectedFrameId : 'iphone');
+  const reversedLayers = useMemo(() => [...layers].reverse(), [layers]);
 
   const bgLabel =
     background.type === 'solid'    ? '単色'         :
@@ -19,7 +25,7 @@ export function LayerPanel() {
         {layers.length === 0 && (
           <Text className="text-xs text-gray-400 text-center py-2">レイヤーがありません</Text>
         )}
-        {[...layers].reverse().map((layer) => {
+        {reversedLayers.map((layer) => {
           const isSel = selectedLayerId === layer.id;
           const label =
             layer.type === 'image' ? '画像' :
@@ -65,7 +71,14 @@ export function LayerPanel() {
 
         {/* Frame toggle */}
         <TouchableOpacity
-          onPress={() => setSelectedFrameId(frameEnabled ? 'none' : 'iphone')}
+          onPress={() => {
+            if (frameEnabled) {
+              prevFrameIdRef.current = selectedFrameId;
+              setSelectedFrameId('none');
+            } else {
+              setSelectedFrameId(prevFrameIdRef.current);
+            }
+          }}
           className="flex-row items-center py-2.5 px-3 rounded-lg mb-1 bg-gray-50"
         >
           <Ionicons name="phone-portrait-outline" size={17} color={colors.textSecondary} />

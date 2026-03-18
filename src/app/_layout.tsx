@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import MobileAds from 'react-native-google-mobile-ads';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -11,6 +12,7 @@ export default function RootLayout() {
   const loadSettings = useSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
+    MobileAds().initialize();
     loadSettings().then(() => {
       SplashScreen.hideAsync();
     });
