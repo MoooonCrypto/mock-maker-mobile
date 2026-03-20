@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.mockmaker.mobile",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
-        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。"
+        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -27,7 +28,17 @@
         "backgroundColor": "#2b8cee"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mockmaker.mobile"
+      "package": "com.mockmaker.mobile",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -58,6 +69,12 @@
           "photosPermission": "モックアップ用の画像・動画を選択するために使用します。"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "407f1d38-7375-42be-972e-59d809de8664"
+      }
+    }
   }
 }

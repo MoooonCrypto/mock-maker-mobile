@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
-import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -328,6 +328,7 @@ export default function EditorScreen() {
 
       {/* Text Input Modal */}
       <Modal visible={textModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View className="flex-1 justify-end bg-black/40">
           <View className="bg-white rounded-t-2xl px-5 pt-5 pb-10">
             <View className="flex-row items-center justify-between mb-4">
@@ -350,6 +351,7 @@ export default function EditorScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {cropPending && (
