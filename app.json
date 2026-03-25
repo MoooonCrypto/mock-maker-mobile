@@ -54,7 +54,6 @@
         }
       ],
       "expo-dev-client",
-      "expo-video",
       [
         "expo-media-library",
         {

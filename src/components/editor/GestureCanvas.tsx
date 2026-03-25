@@ -4,6 +4,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
+import { getCanvasHeight } from '@/constants/templates';
 
 interface Props {
   children: React.ReactNode;
@@ -17,7 +18,8 @@ interface Props {
 
 export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: Props) {
   const { width: screenWidth } = useWindowDimensions();
-  const canvasHeight = screenWidth * 1.5;
+  const templateId  = useEditorStore((s) => s.templateId);
+  const canvasHeight = getCanvasHeight(screenWidth, templateId);
 
   const layers          = useEditorStore((s) => s.layers);
   const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
@@ -26,6 +28,7 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
   const frameScreenRect = useEditorStore((s) => s.frameScreenRect);
   const selectedFrameId = useEditorStore((s) => s.selectedFrameId);
   const frameEnabled    = selectedFrameId !== 'none';
+  const frameScreenRect2 = useEditorStore((s) => s.frameScreenRect2);
   const activeTool      = useEditorStore((s) => s.activeTool);
   const framePosition   = useEditorStore((s) => s.framePosition);
   const setFramePosition = useEditorStore((s) => s.setFramePosition);
@@ -166,10 +169,11 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
       let lx: number, ly: number, halfW: number, halfH: number;
 
       if (layer.type !== 'text' && layer.type !== 'sticker' && frameEnabled && frameScreenRect) {
-        lx    = frameScreenRect.x + frameScreenRect.width  / 2;
-        ly    = frameScreenRect.y + frameScreenRect.height / 2;
-        halfW = frameScreenRect.width  / 2;
-        halfH = frameScreenRect.height / 2;
+        const rect = (layer.frameSlot === 1 && frameScreenRect2) ? frameScreenRect2 : frameScreenRect;
+        lx    = rect.x + rect.width  / 2;
+        ly    = rect.y + rect.height / 2;
+        halfW = rect.width  / 2;
+        halfH = rect.height / 2;
       } else {
         lx    = centerX + layer.position.x;
         ly    = centerY + layer.position.y;

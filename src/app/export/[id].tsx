@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -9,29 +9,19 @@ import { File, Paths } from 'expo-file-system';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { composeVideoWithFrame } from '@/services/videoCompositing';
 import { colors } from '@/constants/theme';
 import { ExportSettings } from '@/types';
 
 export default function ExportScreen() {
   const router = useRouter();
-  const { width: screenWidth } = useWindowDimensions();
   const defaultExport = useSettingsStore((s) => s.defaultExport);
-  const canvasRef       = useEditorStore((s) => s.canvasRef);
-  const layers          = useEditorStore((s) => s.layers);
-  const selectedFrameId = useEditorStore((s) => s.selectedFrameId);
-  const frameEnabled    = selectedFrameId !== 'none';
-  const frameScreenRect = useEditorStore((s) => s.frameScreenRect);
+  const canvasRef = useEditorStore((s) => s.canvasRef);
 
   const [format,  setFormat]  = useState<ExportSettings['format']>(defaultExport.format);
   const [quality, setQuality] = useState<ExportSettings['quality']>(defaultExport.quality);
   const [busy, setBusy] = useState(false);
 
-  const qualityValue  = quality === 'high' ? 100 : 80;
-  const hasVideoLayer = layers.some((l) => l.type === 'video');
-  const videoLayer    = layers.find((l) => l.type === 'video');
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
+  const qualityValue = quality === 'high' ? 100 : 80;
 
   const requestLibraryPermission = async (): Promise<boolean> => {
     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -42,7 +32,6 @@ export default function ExportScreen() {
     return true;
   };
 
-  /** Capture Skia canvas → cache file. Returns file:// URI or null. */
   const captureSnapshot = async (): Promise<string | null> => {
     if (!canvasRef?.current) {
       Alert.alert('エラー', 'キャンバスが見つかりません。エディターに戻ってください。');
@@ -64,9 +53,7 @@ export default function ExportScreen() {
     }
   };
 
-  // ─── 画像エクスポート ───────────────────────────────────────────────────────
-
-  const handleSaveImageToPhotos = async () => {
+  const handleSaveToPhotos = async () => {
     setBusy(true);
     try {
       if (!(await requestLibraryPermission())) return;
@@ -81,7 +68,7 @@ export default function ExportScreen() {
     }
   };
 
-  const handleShareImage = async () => {
+  const handleShare = async () => {
     setBusy(true);
     try {
       if (!(await Sharing.isAvailableAsync())) {
@@ -98,85 +85,8 @@ export default function ExportScreen() {
     }
   };
 
-  // ─── 動画エクスポート ───────────────────────────────────────────────────────
-
-  const handleSaveVideoToPhotos = async () => {
-    if (!videoLayer) return;
-    setBusy(true);
-    try {
-      if (!(await requestLibraryPermission())) return;
-      if (!canvasRef?.current) {
-        Alert.alert('エラー', 'キャンバスが見つかりません。エディターに戻ってください。');
-        return;
-      }
-      const snap = await canvasRef.current.makeImageSnapshotAsync();
-      if (!snap) { Alert.alert('エラー', 'スナップショットの作成に失敗しました'); return; }
-      const bgEncoded = snap.encodeToBase64(ImageFormat.PNG, 100);
-      const bgFile    = new File(Paths.cache, `frame_bg_${Date.now()}.png`);
-      bgFile.write(bgEncoded, { encoding: 'base64' });
-
-      const canvasHeight = screenWidth * 1.5;
-      const screenRect = (frameEnabled && frameScreenRect)
-        ? frameScreenRect
-        : { x: 0, y: 0, width: screenWidth, height: canvasHeight };
-
-      const outputUri = await composeVideoWithFrame({
-        bgImageUri: bgFile.uri,
-        videoUri:   videoLayer.uri,
-        screenRect,
-      });
-      await MediaLibrary.saveToLibraryAsync(outputUri);
-      Alert.alert('完了', '動画を写真アプリに保存しました 🎬');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('エラー', `動画書き出しに失敗しました\n${msg}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleShareVideo = async () => {
-    if (!videoLayer) return;
-    setBusy(true);
-    try {
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('エラー', 'シェア機能が利用できません');
-        return;
-      }
-      if (!canvasRef?.current) {
-        Alert.alert('エラー', 'キャンバスが見つかりません。エディターに戻ってください。');
-        return;
-      }
-      const snap = await canvasRef.current.makeImageSnapshotAsync();
-      if (!snap) { Alert.alert('エラー', 'スナップショットの作成に失敗しました'); return; }
-      const bgEncoded = snap.encodeToBase64(ImageFormat.PNG, 100);
-      const bgFile    = new File(Paths.cache, `frame_bg_${Date.now()}.png`);
-      bgFile.write(bgEncoded, { encoding: 'base64' });
-
-      const canvasHeight = screenWidth * 1.5;
-      const screenRect = (frameEnabled && frameScreenRect)
-        ? frameScreenRect
-        : { x: 0, y: 0, width: screenWidth, height: canvasHeight };
-
-      const outputUri = await composeVideoWithFrame({
-        bgImageUri: bgFile.uri,
-        videoUri:   videoLayer.uri,
-        screenRect,
-      });
-      await Sharing.shareAsync(outputUri, { mimeType: 'video/mp4' });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('エラー', `動画書き出しに失敗しました\n${msg}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
     <SafeAreaView className="flex-1 bg-surface">
-      {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
         <TouchableOpacity onPress={() => router.back()}>
           <Text className="text-base text-primary">キャンセル</Text>
@@ -186,12 +96,9 @@ export default function ExportScreen() {
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
-
-        {/* ── 画像セクション ── */}
         <View className="bg-white rounded-2xl mb-4 overflow-hidden">
           <View className="px-4 pt-4 pb-2">
             <Text className="text-sm font-bold text-gray-700 mb-3">📷 画像として書き出し</Text>
-            {/* フォーマット */}
             <Text className="text-xs text-gray-500 mb-1">フォーマット</Text>
             <View className="flex-row bg-gray-100 rounded-lg overflow-hidden mb-3">
               {(['png', 'jpg'] as const).map((fmt) => (
@@ -207,7 +114,6 @@ export default function ExportScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            {/* 画質 */}
             <Text className="text-xs text-gray-500 mb-1">画質</Text>
             <View className="flex-row bg-gray-100 rounded-lg overflow-hidden mb-4">
               {([{ key: 'standard' as const, label: '標準' }, { key: 'high' as const, label: '高画質' }]).map(({ key, label }) => (
@@ -225,9 +131,8 @@ export default function ExportScreen() {
             </View>
           </View>
 
-          {/* 写真アプリに保存 */}
           <TouchableOpacity
-            onPress={handleSaveImageToPhotos}
+            onPress={handleSaveToPhotos}
             disabled={busy}
             className={`mx-4 mb-2 rounded-xl py-3.5 flex-row items-center justify-center bg-primary ${busy ? 'opacity-60' : ''}`}
           >
@@ -235,9 +140,8 @@ export default function ExportScreen() {
             <Text className="text-white font-semibold ml-2">写真アプリに保存</Text>
           </TouchableOpacity>
 
-          {/* 共有 */}
           <TouchableOpacity
-            onPress={handleShareImage}
+            onPress={handleShare}
             disabled={busy}
             className={`mx-4 mb-4 rounded-xl py-3.5 flex-row items-center justify-center border border-gray-200 ${busy ? 'opacity-60' : ''}`}
           >
@@ -245,35 +149,6 @@ export default function ExportScreen() {
             <Text className="text-gray-900 font-semibold ml-2">共有 / ファイルに保存</Text>
           </TouchableOpacity>
         </View>
-
-        {/* ── 動画セクション（動画レイヤーがある場合のみ） ── */}
-        {hasVideoLayer && (
-          <View className="bg-white rounded-2xl mb-4 overflow-hidden">
-            <View className="px-4 pt-4 pb-2">
-              <Text className="text-sm font-bold text-gray-700 mb-1">🎬 動画として書き出し（MP4）</Text>
-              <Text className="text-xs text-gray-400 mb-4">フレームと動画を合成してMP4で書き出します</Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleSaveVideoToPhotos}
-              disabled={busy}
-              className={`mx-4 mb-2 rounded-xl py-3.5 flex-row items-center justify-center bg-purple-600 ${busy ? 'opacity-60' : ''}`}
-            >
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="videocam-outline" size={18} color="#fff" />}
-              <Text className="text-white font-semibold ml-2">写真アプリに保存（MP4）</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleShareVideo}
-              disabled={busy}
-              className={`mx-4 mb-4 rounded-xl py-3.5 flex-row items-center justify-center border border-gray-200 ${busy ? 'opacity-60' : ''}`}
-            >
-              <Ionicons name="share-outline" size={18} color={colors.text} />
-              <Text className="text-gray-900 font-semibold ml-2">共有 / ファイルに保存（MP4）</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
       </ScrollView>
     </SafeAreaView>
   );

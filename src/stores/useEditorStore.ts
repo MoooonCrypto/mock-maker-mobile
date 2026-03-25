@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { RefObject } from 'react';
 import type { CanvasRef } from '@shopify/react-native-skia';
 import { Layer, Background, ShadowConfig, StrokeConfig } from '../types';
+import type { TemplateId } from '../constants/templates';
 
 type ScreenRect = { x: number; y: number; width: number; height: number };
 
@@ -10,6 +11,7 @@ export type FrameId = 'iphone' | 'iphone-se' | 'app-icon' | 'none';
 export type FrameScreenType = 'transparent' | 'opaque' | null;
 
 interface EditorState {
+  templateId: TemplateId;
   sessionName: string;
   layers: Layer[];
   selectedLayerId: string | null;
@@ -17,11 +19,13 @@ interface EditorState {
   frameScale: number;
   framePosition: { x: number; y: number };
   frameScreenRect: ScreenRect | null;
+  frameScreenRect2: ScreenRect | null;
   frameScreenType: FrameScreenType;
   background: Background;
   activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame' | 'sticker';
   canvasRef: RefObject<CanvasRef | null> | null;
 
+  setTemplateId: (id: TemplateId) => void;
   setSessionName: (name: string) => void;
   setLayers: (layers: Layer[]) => void;
   addLayer: (layer: Layer) => void;
@@ -32,6 +36,7 @@ interface EditorState {
   setFrameScale: (scale: number) => void;
   setFramePosition: (pos: { x: number; y: number }) => void;
   setFrameScreenRect: (rect: ScreenRect | null, type: FrameScreenType) => void;
+  setFrameScreenRect2: (rect: ScreenRect | null) => void;
   setBackground: (bg: Background) => void;
   setActiveTool: (tool: EditorState['activeTool']) => void;
   addStickerLayer: (key: string, size: { width: number; height: number }) => void;
@@ -78,19 +83,43 @@ export const createDefaultLayer = (
   ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
 });
 
+function templateDefaults(id: TemplateId): {
+  selectedFrameId: FrameId;
+  frameScale: number;
+  framePosition: { x: number; y: number };
+} {
+  switch (id) {
+    case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: -80  } };
+    case 'double':   return { selectedFrameId: 'iphone',    frameScale: 1.15, framePosition: { x: 0, y: -80  } };
+    case 'top-half': return { selectedFrameId: 'iphone',    frameScale: 1.3,  framePosition: { x: 0, y: 80   } };
+    case 'split':    return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0    } };
+    case 'icon':     return { selectedFrameId: 'app-icon',  frameScale: 0.85, framePosition: { x: 0, y: -100 } };
+    default:         return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0    } };
+  }
+}
+
 export const useEditorStore = create<EditorState>((set) => ({
+  templateId: 'single',
   sessionName: '無題のモックアップ',
   layers: [],
   selectedLayerId: null,
   selectedFrameId: 'iphone',
-  frameScale: 1.0,
-  framePosition: { x: 0, y: 0 },
+  frameScale: 0.85,
+  framePosition: { x: 0, y: -80 },
   frameScreenRect: null,
+  frameScreenRect2: null,
   frameScreenType: null,
   background: defaultBackground,
   activeTool: 'select',
   canvasRef: null,
 
+  setTemplateId: (id) => set({
+    templateId: id,
+    ...templateDefaults(id),
+    frameScreenRect: null,
+    frameScreenRect2: null,
+    frameScreenType: null,
+  }),
   setSessionName: (name) => set({ sessionName: name }),
   setLayers: (layers) => set({ layers }),
   addLayer: (layer) => set((s) => ({ layers: [...s.layers, layer], selectedLayerId: layer.id })),
@@ -106,14 +135,16 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectLayer: (id) => set({ selectedLayerId: id }),
   setSelectedFrameId: (id) => set({
     selectedFrameId: id,
-    frameScale: 1.0,
+    frameScale: 0.85,
     framePosition: { x: 0, y: 0 },
     frameScreenRect: null,
+    frameScreenRect2: null,
     frameScreenType: null,
   }),
   setFrameScale: (scale) => set({ frameScale: scale }),
   setFramePosition: (pos) => set({ framePosition: pos }),
   setFrameScreenRect: (rect, type) => set({ frameScreenRect: rect, frameScreenType: type }),
+  setFrameScreenRect2: (rect) => set({ frameScreenRect2: rect }),
   setBackground: (bg) => set({ background: bg }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   addStickerLayer: (key, size) =>
@@ -124,13 +155,15 @@ export const useEditorStore = create<EditorState>((set) => ({
   setCanvasRef: (ref) => set({ canvasRef: ref }),
   reset: () =>
     set({
+      templateId: 'single',
       sessionName: '無題のモックアップ',
       layers: [],
       selectedLayerId: null,
       selectedFrameId: 'iphone',
-      frameScale: 1.0,
-      framePosition: { x: 0, y: 0 },
+      frameScale: 0.85,
+      framePosition: { x: 0, y: -80 },
       frameScreenRect: null,
+      frameScreenRect2: null,
       frameScreenType: null,
       background: defaultBackground,
       activeTool: 'select',

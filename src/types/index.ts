@@ -12,7 +12,7 @@ export interface Project {
 
 export interface Layer {
   id: string;
-  type: 'image' | 'video' | 'text' | 'sticker';
+  type: 'image' | 'text' | 'sticker';
   uri: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
@@ -22,6 +22,8 @@ export interface Layer {
   shadow: ShadowConfig;
   stroke: StrokeConfig;
   zIndex: number;
+  // Frame slot for 'double' template (0 = left, 1 = right)
+  frameSlot?: 0 | 1;
   // Image crop rect (original image pixels)
   cropX?: number;
   cropY?: number;
