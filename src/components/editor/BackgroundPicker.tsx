@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
 import { runOnJS } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
+import { t } from '@/i18n';
 import { presetBackgrounds } from '@/constants/backgrounds';
 import { Background } from '@/types';
 import { colors } from '@/constants/theme';
@@ -41,7 +42,7 @@ export function BackgroundPicker() {
 
   return (
     <View className="bg-white border-t border-gray-200 px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-500 mb-3">背景</Text>
+      <Text className="text-sm font-semibold text-gray-500 mb-3">{t('background.title')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
 
         {/* Full color picker button — leftmost */}
@@ -101,7 +102,7 @@ export function BackgroundPicker() {
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
           <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>カラーを選択</Text>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>{t('background.colorPickerTitle')}</Text>
               <TouchableOpacity onPress={() => setPickerVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -121,7 +122,7 @@ export function BackgroundPicker() {
               onPress={() => setPickerVisible(false)}
               style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
             >
-              <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>決定</Text>
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>{t('background.colorPickerOk')}</Text>
             </TouchableOpacity>
           </View>
         </View>

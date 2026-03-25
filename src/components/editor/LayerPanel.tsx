@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { FrameId } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
+import { t } from '@/i18n';
 
 export function LayerPanel() {
   const { layers, selectedLayerId, selectLayer, removeLayer, selectedFrameId, setSelectedFrameId, background, setActiveTool } = useEditorStore();
@@ -14,23 +15,23 @@ export function LayerPanel() {
   const reversedLayers = useMemo(() => [...layers].reverse(), [layers]);
 
   const bgLabel =
-    background.type === 'solid'    ? '単色'         :
-    background.type === 'gradient' ? 'グラデーション' : '画像';
+    background.type === 'solid'    ? t('layers.bgSolid')    :
+    background.type === 'gradient' ? t('layers.bgGradient') : t('layers.bgImage');
 
   return (
     <ScrollView style={{ maxHeight: 220 }} className="bg-white border-t border-gray-200">
       <View className="px-4 pt-3 pb-2">
-        <Text className="text-sm font-semibold text-gray-500 mb-2">レイヤー</Text>
+        <Text className="text-sm font-semibold text-gray-500 mb-2">{t('layers.title')}</Text>
 
         {layers.length === 0 && (
-          <Text className="text-xs text-gray-400 text-center py-2">レイヤーがありません</Text>
+          <Text className="text-xs text-gray-400 text-center py-2">{t('layers.empty')}</Text>
         )}
         {reversedLayers.map((layer) => {
           const isSel = selectedLayerId === layer.id;
           const label =
-            layer.type === 'image' ? '画像' :
-            layer.type === 'video' ? '動画' :
-            `テキスト: ${layer.uri.slice(0, 12)}${layer.uri.length > 12 ? '…' : ''}`;
+            layer.type === 'image' ? t('layers.typeImage') :
+            layer.type === 'video' ? t('layers.typeVideo') :
+            `${t('layers.typeText')}${layer.uri.slice(0, 12)}${layer.uri.length > 12 ? '…' : ''}`;
           const icon =
             layer.type === 'image' ? 'image-outline'   :
             layer.type === 'video' ? 'videocam-outline' : 'text-outline';
@@ -64,7 +65,7 @@ export function LayerPanel() {
         >
           <Ionicons name="color-palette-outline" size={17} color={colors.textSecondary} />
           <Text className="flex-1 ml-3 text-sm text-gray-500" numberOfLines={1}>
-            背景 ({bgLabel})
+            {t('layers.bgLabel')} ({bgLabel})
           </Text>
           <Ionicons name="chevron-forward" size={13} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -83,7 +84,7 @@ export function LayerPanel() {
         >
           <Ionicons name="phone-portrait-outline" size={17} color={colors.textSecondary} />
           <Text className="flex-1 ml-3 text-sm text-gray-500">
-            フレーム
+            {t('layers.frame')}
           </Text>
           <View
             className={`w-10 h-6 rounded-full justify-center ${frameEnabled ? 'bg-primary items-end' : 'bg-gray-300 items-start'}`}

@@ -3,18 +3,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
+import { t } from '@/i18n';
 
 interface Props {
   onMediaPress: () => void;
 }
 
 const tools = [
-  { key: 'frame'      as const, icon: 'phone-portrait-outline' as const, label: 'フレーム' },
-  { key: 'background' as const, icon: 'color-palette-outline'  as const, label: '背景' },
-  { key: 'text'       as const, icon: 'text-outline'           as const, label: 'テキスト' },
-  { key: 'sticker'    as const, icon: 'pricetag-outline'       as const, label: 'スタンプ' },
-  { key: 'media'      as const, icon: 'image-outline'          as const, label: 'メディア' },
-  { key: 'layers'     as const, icon: 'layers-outline'         as const, label: 'レイヤー' },
+  { key: 'frame'      as const, icon: 'phone-portrait-outline' as const, labelKey: 'toolbar.frame' },
+  { key: 'background' as const, icon: 'color-palette-outline'  as const, labelKey: 'toolbar.background' },
+  { key: 'text'       as const, icon: 'text-outline'           as const, labelKey: 'toolbar.text' },
+  { key: 'sticker'    as const, icon: 'pricetag-outline'       as const, labelKey: 'toolbar.sticker' },
+  { key: 'media'      as const, icon: 'image-outline'          as const, labelKey: 'toolbar.media' },
+  { key: 'layers'     as const, icon: 'layers-outline'         as const, labelKey: 'toolbar.layers' },
 ] as const;
 
 export function Toolbar({ onMediaPress }: Props) {
@@ -37,7 +38,7 @@ export function Toolbar({ onMediaPress }: Props) {
 
   return (
     <View className="bg-white border-t border-gray-200 flex-row justify-around py-2 px-2">
-      {tools.map(({ key, icon, label }) => {
+      {tools.map(({ key, icon, labelKey }) => {
         const isActive = activeTool === key;
         return (
           <TouchableOpacity
@@ -51,7 +52,7 @@ export function Toolbar({ onMediaPress }: Props) {
               color={isActive ? colors.primary : colors.textSecondary}
             />
             <Text className={`text-xs mt-0.5 ${isActive ? 'text-primary font-semibold' : 'text-gray-400'}`}>
-              {label}
+              {t(labelKey)}
             </Text>
           </TouchableOpacity>
         );
@@ -64,7 +65,7 @@ export function Toolbar({ onMediaPress }: Props) {
       >
         <Ionicons name="trash-outline" size={22} color={hasSelection ? '#ef4444' : '#d1d5db'} />
         <Text className={`text-xs mt-0.5 ${hasSelection ? 'text-red-400' : 'text-gray-300'}`}>
-          ゴミ箱
+          {t('toolbar.delete')}
         </Text>
       </TouchableOpacity>
     </View>

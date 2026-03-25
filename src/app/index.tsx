@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { TemplateId } from '@/constants/templates';
 import { TEMPLATES } from '@/constants/templates';
+import { t, templateKey } from '@/i18n';
 
 // ─── Template preview illustrations ──────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export default function HomeScreen() {
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       <View className="px-5 pt-6 pb-2">
         <Text className="text-2xl font-bold text-gray-900">MockMaker</Text>
-        <Text className="text-sm text-gray-500 mt-1">テンプレートを選択してください</Text>
+        <Text className="text-sm text-gray-500 mt-1">{t('home.subtitle')}</Text>
       </View>
 
       <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false}>
@@ -111,11 +112,11 @@ export default function HomeScreen() {
                 }}
               >
                 <Preview />
-                <Text style={{ fontWeight: '700', fontSize: 15, color: '#111', marginTop: 8 }}>{tpl.label}</Text>
-                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{tpl.description}</Text>
+                <Text style={{ fontWeight: '700', fontSize: 15, color: '#111', marginTop: 8 }}>{t(`templates.${templateKey(tpl.id)}.label`)}</Text>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t(`templates.${templateKey(tpl.id)}.description`)}</Text>
                 {tpl.exportCount > 1 && (
                   <View style={{ marginTop: 6, backgroundColor: '#eef2ff', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' }}>
-                    <Text style={{ fontSize: 10, color: '#4f46e5', fontWeight: '600' }}>{tpl.exportCount}枚書き出し</Text>
+                    <Text style={{ fontSize: 10, color: '#4f46e5', fontWeight: '600' }}>{t('home.exportCount', { count: tpl.exportCount })}</Text>
                   </View>
                 )}
               </TouchableOpacity>

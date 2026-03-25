@@ -80,7 +80,7 @@ export const createDefaultLayer = (
   shadow: { ...defaultShadow },
   stroke: { ...defaultStroke },
   zIndex: 0,
-  ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
+  ...(type === 'text' && { textColor: '#1a1a1a', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
 });
 
 function templateDefaults(id: TemplateId): {

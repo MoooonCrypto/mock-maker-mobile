@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
 import { STICKER_CATALOG, STICKER_ASSETS } from '@/constants/stickers';
+import { t } from '@/i18n';
 
 const GAP = 8;
 const HPAD = 16;
@@ -43,7 +44,7 @@ export function StickerPicker() {
 
       {/* Title */}
       <View style={{ paddingHorizontal: HPAD, marginBottom: 10 }}>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>スタンプ</Text>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{t('sticker.title')}</Text>
       </View>
 
       {/* Flat sticker grid — categories rendered in order, each with own column count */}

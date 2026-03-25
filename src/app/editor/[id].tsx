@@ -12,6 +12,7 @@ import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
 import { getCanvasHeight } from '@/constants/templates';
+import { t } from '@/i18n';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
 import { Toolbar } from '@/components/editor/Toolbar';
@@ -76,10 +77,10 @@ function FrameSizePanel() {
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: '#e5e7eb' }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 }}>
-        フレームサイズ: {Math.round(frameScale * 100)}%
+        {t('editor.frameSizeLabel', { pct: Math.round(frameScale * 100) })}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Text style={{ fontSize: 11, color: '#9ca3af' }}>小</Text>
+        <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.frameSizeSmall')}</Text>
         <View
           ref={trackViewRef}
           style={{ flex: 1, height: 40, justifyContent: 'center' }}
@@ -99,7 +100,7 @@ function FrameSizePanel() {
             borderWidth: 2, borderColor: 'white',
           }} />
         </View>
-        <Text style={{ fontSize: 11, color: '#9ca3af' }}>大</Text>
+        <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.frameSizeLarge')}</Text>
       </View>
     </View>
   );
@@ -122,10 +123,10 @@ function SplitPositionPanel() {
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: '#e5e7eb' }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 }}>
-        フレーム横位置
+        {t('editor.framePosLabel')}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Text style={{ fontSize: 11, color: '#9ca3af' }}>左</Text>
+        <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.framePosLeft')}</Text>
         <View
           ref={trackViewRef}
           style={{ flex: 1, height: 40, justifyContent: 'center' }}
@@ -147,7 +148,7 @@ function SplitPositionPanel() {
             borderWidth: 2, borderColor: 'white',
           }} />
         </View>
-        <Text style={{ fontSize: 11, color: '#9ca3af' }}>右</Text>
+        <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.framePosRight')}</Text>
       </View>
     </View>
   );
@@ -260,7 +261,7 @@ export default function EditorScreen() {
 
   const exportTo = async (target: 'photos' | 'files') => {
     if (!canvasRef?.current) {
-      Alert.alert('エラー', 'キャンバスが見つかりません');
+      Alert.alert(t('editor.errTitle'), t('editor.errCanvasNotFound'));
       return;
     }
     setBusy(true);
@@ -268,7 +269,7 @@ export default function EditorScreen() {
       if (target === 'photos') {
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('権限エラー', 'フォトライブラリへのアクセスを許可してください');
+          Alert.alert(t('editor.errPermissionTitle'), t('editor.errPermission'));
           return;
         }
       }
@@ -282,7 +283,7 @@ export default function EditorScreen() {
         const ts = Date.now();
         for (let i = 0; i < bounds.length; i++) {
           const snap = await canvasRef.current.makeImageSnapshotAsync(bounds[i]);
-          if (!snap) throw new Error(`スナップショット${i + 1}取得に失敗しました`);
+          if (!snap) throw new Error(`${t('editor.errSnapshotFailed')} (${i + 1})`);
           const encoded = snap.encodeToBase64(ImageFormat.PNG, 100);
           const file = new File(Paths.cache, `mockup_${ts}_${i + 1}.png`);
           file.write(encoded, { encoding: 'base64' });
@@ -293,12 +294,12 @@ export default function EditorScreen() {
           }
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        if (target === 'photos') showAdThenAlert('完了', '2枚の画像を写真アプリに保存しました');
+        if (target === 'photos') showAdThenAlert(t('editor.doneTitle'), t('editor.exportDone2'));
         return;
       }
 
       const snap = await canvasRef.current.makeImageSnapshotAsync();
-      if (!snap) throw new Error('スナップショット取得に失敗しました');
+      if (!snap) throw new Error(t('editor.errSnapshotFailed'));
 
       const encoded = snap.encodeToBase64(ImageFormat.PNG, 100);
       const file    = new File(Paths.cache, `mockup_${Date.now()}.png`);
@@ -307,26 +308,26 @@ export default function EditorScreen() {
       if (target === 'photos') {
         await MediaLibrary.saveToLibraryAsync(file.uri);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        showAdThenAlert('完了', '写真アプリに保存しました');
+        showAdThenAlert(t('editor.doneTitle'), t('editor.exportDonePhotos'));
       } else {
         await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        showAdThenAlert('完了', '共有しました');
+        showAdThenAlert(t('editor.doneTitle'), t('editor.exportDoneShared'));
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      Alert.alert('エラー', `書き出しに失敗しました\n${msg}`);
+      Alert.alert(t('editor.errTitle'), `${t('editor.exportFailed')}\n${msg}`);
     } finally {
       setBusy(false);
     }
   };
 
   const handleSaveOptions = () => {
-    Alert.alert('書き出し', undefined, [
-      { text: '写真アプリに保存', onPress: () => exportTo('photos') },
-      { text: 'ファイルに保存 / 共有', onPress: () => exportTo('files') },
-      { text: 'キャンセル', style: 'cancel' },
+    Alert.alert(t('editor.exportTitle'), undefined, [
+      { text: t('editor.exportSavePhotos'), onPress: () => exportTo('photos') },
+      { text: t('editor.exportSaveFiles'),  onPress: () => exportTo('files') },
+      { text: t('editor.exportCancel'), style: 'cancel' },
     ]);
   };
 
@@ -340,7 +341,9 @@ export default function EditorScreen() {
   const handleAddText = () => {
     if (!textInput.trim()) return;
     const layer = createDefaultLayer('text', textInput.trim(), { width: 200, height: 32 });
-    addLayer(layer);
+    // split canvas height is ~half of normal, so default y:-250 goes off-screen
+    const textY = templateId === 'split' ? -80 : -250;
+    addLayer({ ...layer, position: { x: 0, y: textY } });
     setTextInput('');
     setTextModalVisible(false);
     setActiveTool('select');
@@ -362,10 +365,10 @@ export default function EditorScreen() {
 
   const handleMediaPick = () => {
     if (templateId === 'double') {
-      Alert.alert('フレームを選択', 'どちらのフレームに画像を追加しますか？', [
-        { text: '左フレームの画像', onPress: () => pickImageForSlot(0) },
-        { text: '右フレームの画像', onPress: () => pickImageForSlot(1) },
-        { text: 'キャンセル', style: 'cancel' },
+      Alert.alert(t('editor.frameSelectTitle'), t('editor.frameSelectMsg'), [
+        { text: t('editor.frameSelectLeft'),  onPress: () => pickImageForSlot(0) },
+        { text: t('editor.frameSelectRight'), onPress: () => pickImageForSlot(1) },
+        { text: t('editor.exportCancel'), style: 'cancel' },
       ]);
     } else {
       pickImageForSlot(0);
@@ -431,9 +434,9 @@ export default function EditorScreen() {
         {activeTool === 'layers'     && <LayerPanel />}
         {activeTool === 'text' && !selectedIsText && (
           <View className="bg-white border-t border-gray-200 px-4 py-3">
-            <Text className="text-sm font-semibold text-gray-500 mb-3">テキスト</Text>
+            <Text className="text-sm font-semibold text-gray-500 mb-3">{t('editor.textSectionTitle')}</Text>
             <TouchableOpacity onPress={openTextModal} className="bg-primary rounded-xl py-3 items-center">
-              <Text className="text-white font-semibold">テキストを追加</Text>
+              <Text className="text-white font-semibold">{t('editor.textAddBtn')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -449,7 +452,7 @@ export default function EditorScreen() {
         <View className="flex-1 justify-end bg-black/40">
           <View className="bg-white rounded-t-2xl px-5 pt-5 pb-10">
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-bold text-gray-900">テキストを追加</Text>
+              <Text className="text-lg font-bold text-gray-900">{t('editor.textModalTitle')}</Text>
               <TouchableOpacity onPress={() => setTextModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -457,14 +460,14 @@ export default function EditorScreen() {
             <TextInput
               value={textInput}
               onChangeText={setTextInput}
-              placeholder="テキストを入力..."
+              placeholder={t('editor.textInputPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               className="bg-gray-100 rounded-xl px-4 py-3 text-base text-gray-900 mb-4"
               autoFocus
               multiline
             />
             <TouchableOpacity onPress={handleAddText} className="bg-primary rounded-xl py-3 items-center">
-              <Text className="text-white font-semibold">追加</Text>
+              <Text className="text-white font-semibold">{t('editor.textAddConfirm')}</Text>
             </TouchableOpacity>
           </View>
         </View>

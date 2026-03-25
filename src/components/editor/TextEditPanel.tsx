@@ -4,6 +4,7 @@ import Slider from '@react-native-community/slider';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
+import { t } from '@/i18n';
 
 // ── Font catalog ──────────────────────────────────────────────────────────────
 const FONT_CATALOG = [
@@ -124,7 +125,7 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
 
         {/* Header */}
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-sm font-semibold text-gray-500">テキスト編集</Text>
+          <Text className="text-sm font-semibold text-gray-500">{t('textEdit.title')}</Text>
           {onClose && (
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={20} color={colors.textSecondary} />
@@ -150,12 +151,12 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
           }}
           multiline
           placeholderTextColor="rgba(255,255,255,0.4)"
-          placeholder="テキストを入力"
+          placeholder={t('textEdit.placeholder')}
         />
 
         {/* Font family — dropdown (vertical scroll, each name in its own typeface) */}
         <View className="mb-3">
-          <Text className="text-sm text-gray-700 mb-2">フォント</Text>
+          <Text className="text-sm text-gray-700 mb-2">{t('textEdit.fontLabel')}</Text>
           <TouchableOpacity
             onPress={() => setFontDropdownOpen((v) => !v)}
             style={{
@@ -235,14 +236,14 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
             </ScrollView>
           )}
           {hasJa && (
-            <Text className="text-xs text-gray-400 mt-1">日本語テキストのため日本語対応フォントのみ表示</Text>
+            <Text className="text-xs text-gray-400 mt-1">{t('textEdit.jaOnlyFonts')}</Text>
           )}
         </View>
 
         {/* Font size */}
         <View className="mb-3">
           <View className="flex-row justify-between mb-1">
-            <Text className="text-sm text-gray-700">文字サイズ</Text>
+            <Text className="text-sm text-gray-700">{t('textEdit.sizeLabel')}</Text>
             <Text className="text-sm text-gray-400">{fontSize}pt</Text>
           </View>
           <Slider
@@ -270,7 +271,7 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
 
         {/* Style: Bold + Underline */}
         <View className="mb-3">
-          <Text className="text-sm text-gray-700 mb-2">スタイル</Text>
+          <Text className="text-sm text-gray-700 mb-2">{t('textEdit.styleLabel')}</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity
               onPress={() => updateLayer(layer.id, { fontWeight: isBold ? 'normal' : 'bold' })}
@@ -305,7 +306,7 @@ export function TextEditPanel({ onClose }: { onClose?: () => void }) {
 
         {/* Text color */}
         <View>
-          <Text className="text-sm text-gray-700 mb-2">文字色</Text>
+          <Text className="text-sm text-gray-700 mb-2">{t('textEdit.colorLabel')}</Text>
           <View className="flex-row gap-2">
             {TEXT_COLORS.map((c) => (
               <TouchableOpacity

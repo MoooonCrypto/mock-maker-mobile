@@ -4,6 +4,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { t } from '@/i18n';
 
 interface CropRect {
   cropX: number;
@@ -155,10 +156,10 @@ export function ImageCropModal({
           }}
         >
           <TouchableOpacity onPress={onCancel} hitSlop={8} style={{ minWidth: 72 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16 }}>キャンセル</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16 }}>{t('imageCrop.cancel')}</Text>
           </TouchableOpacity>
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-            フレームに配置
+            {t('imageCrop.title')}
           </Text>
           <View style={{ minWidth: 72 }} />
         </View>
@@ -227,7 +228,7 @@ export function ImageCropModal({
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>追加</Text>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{t('imageCrop.confirm')}</Text>
           </TouchableOpacity>
         </View>
       </GestureHandlerRootView>
