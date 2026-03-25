@@ -1,6 +1,9 @@
-import { View, TouchableOpacity, ScrollView, Text } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, TouchableOpacity, ScrollView, Text, Modal } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
+import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
+import { runOnJS } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { presetBackgrounds } from '@/constants/backgrounds';
 import { Background } from '@/types';
@@ -8,10 +11,21 @@ import { colors } from '@/constants/theme';
 
 export function BackgroundPicker() {
   const { background, setBackground } = useEditorStore();
+  const [pickerVisible, setPickerVisible] = useState(false);
 
-  const handleSelect = (bg: Background) => {
-    setBackground(bg);
-  };
+  const currentHex =
+    background.type === 'solid' ? background.color ?? '#ffffff' : '#ffffff';
+
+  const applyColor = useCallback((hex: string) => {
+    setBackground({ type: 'solid', color: hex });
+  }, [setBackground]);
+
+  const onColorComplete = useCallback(({ hex }: { hex: string }) => {
+    'worklet';
+    runOnJS(applyColor)(hex);
+  }, [applyColor]);
+
+  const handleSelect = (bg: Background) => setBackground(bg);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -29,6 +43,21 @@ export function BackgroundPicker() {
     <View className="bg-white border-t border-gray-200 px-4 py-3">
       <Text className="text-sm font-semibold text-gray-500 mb-3">背景</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+
+        {/* Full color picker button — leftmost */}
+        <TouchableOpacity
+          onPress={() => setPickerVisible(true)}
+          className="w-12 h-12 rounded-xl mr-2 items-center justify-center border border-gray-200"
+          style={{ overflow: 'hidden' }}
+        >
+          {/* Rainbow gradient strip faked with colored slices */}
+          <View style={{ width: 48, height: 48, borderRadius: 11, overflow: 'hidden', flexDirection: 'row' }}>
+            {['#ff0000','#ff8800','#ffff00','#00cc00','#0088ff','#8800ff'].map((c, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: c }} />
+            ))}
+          </View>
+        </TouchableOpacity>
+
         {/* Image picker button */}
         <TouchableOpacity
           onPress={handlePickImage}
@@ -66,6 +95,37 @@ export function BackgroundPicker() {
           );
         })}
       </ScrollView>
+
+      {/* Color Picker Modal */}
+      <Modal visible={pickerVisible} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>カラーを選択</Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ColorPicker
+              value={currentHex}
+              onComplete={onColorComplete}
+              style={{ gap: 12 }}
+            >
+              <Preview style={{ height: 40, borderRadius: 10 }} />
+              <Panel1 style={{ borderRadius: 10, height: 200 }} />
+              <HueSlider style={{ borderRadius: 10 }} />
+            </ColorPicker>
+
+            <TouchableOpacity
+              onPress={() => setPickerVisible(false)}
+              style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>決定</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
