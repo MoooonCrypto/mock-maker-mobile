@@ -80,7 +80,7 @@ export const createDefaultLayer = (
   shadow: { ...defaultShadow },
   stroke: { ...defaultStroke },
   zIndex: 0,
-  ...(type === 'text' && { textColor: '#1a1a1a', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
+  ...(type === 'text' && { textColor: '#ffffff', fontWeight: 'normal' as const, fontFamily: 'noto-sans-jp' as const }),
 });
 
 function templateDefaults(id: TemplateId): {
@@ -89,7 +89,7 @@ function templateDefaults(id: TemplateId): {
   framePosition: { x: number; y: number };
 } {
   switch (id) {
-    case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: -80  } };
+    case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: -120 } };
     case 'double':   return { selectedFrameId: 'iphone',    frameScale: 1.15, framePosition: { x: 0, y: -80  } };
     case 'top-half': return { selectedFrameId: 'iphone',    frameScale: 1.3,  framePosition: { x: 0, y: 80   } };
     case 'split':    return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0    } };
@@ -161,7 +161,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedLayerId: null,
       selectedFrameId: 'iphone',
       frameScale: 0.85,
-      framePosition: { x: 0, y: -80 },
+      framePosition: { x: 0, y: -120 },
       frameScreenRect: null,
       frameScreenRect2: null,
       frameScreenType: null,

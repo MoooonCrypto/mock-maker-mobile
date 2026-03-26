@@ -342,7 +342,7 @@ export default function EditorScreen() {
     if (!textInput.trim()) return;
     const layer = createDefaultLayer('text', textInput.trim(), { width: 200, height: 32 });
     // split canvas height is ~half of normal, so default y:-250 goes off-screen
-    const textY = templateId === 'split' ? -80 : -250;
+    const textY = templateId === 'split' ? -100 : -300;
     addLayer({ ...layer, position: { x: 0, y: textY } });
     setTextInput('');
     setTextModalVisible(false);
