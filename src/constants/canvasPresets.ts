@@ -28,3 +28,26 @@ export const DEFAULT_PRESET_ID: CanvasPresetId = 'store-67'
 export function getPreset(id: CanvasPresetId): CanvasPreset {
   return CANVAS_PRESETS.find(p => p.id === id)!
 }
+
+// iPhone frame image pixel dimensions (frame_img.png: 1017×1680)
+export const FRAME_IMG_W = 1017
+export const FRAME_IMG_H = 1680
+
+/**
+ * Calculate max frameScale that keeps the iPhone frame fully within the canvas height.
+ * Width overflow (sides clipped) is allowed — only height is constrained.
+ */
+export function getMaxFrameScale(
+  canvasW: number,
+  canvasH: number,
+  templateId: string,
+  padding = 0.95,
+): number {
+  if (templateId === 'top-half') {
+    // baseTopScale already produces ~2/3 crop. Cap at 1.0 to prevent further zoom.
+    return 1.0
+  }
+  const effectiveW = templateId === 'double' ? canvasW / 2 : canvasW
+  const baseScale = Math.min(effectiveW / FRAME_IMG_W, canvasH / FRAME_IMG_H)
+  return (canvasH / (FRAME_IMG_H * baseScale)) * padding
+}

@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, PixelRatio } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { FrameId } from '@/stores/useEditorStore';
 import { colors } from '@/constants/theme';
+import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
 
 const FRAMES: { id: FrameId; label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'none',       label: 'なし',       sub: 'フレームなし',   icon: 'close-circle-outline' },
@@ -17,7 +18,15 @@ export function FramePicker() {
   const setActiveTool      = useEditorStore((s) => s.setActiveTool);
   const frameScale         = useEditorStore((s) => s.frameScale);
   const setFrameScale      = useEditorStore((s) => s.setFrameScale);
+  const canvasPresetId     = useEditorStore((s) => s.canvasPresetId);
+  const templateId         = useEditorStore((s) => s.templateId);
   const frameEnabled       = selectedFrameId !== 'none';
+
+  const pixelRatio = PixelRatio.get();
+  const _preset = getPreset(canvasPresetId);
+  const canvasW = _preset.exportW / pixelRatio;
+  const canvasH = templateId === 'split' ? (_preset.exportH / pixelRatio) / 2 : _preset.exportH / pixelRatio;
+  const maxScale = getMaxFrameScale(canvasW, canvasH, templateId);
 
   return (
     <View className="bg-white border-t border-gray-200 px-4 py-3">
@@ -56,13 +65,13 @@ export function FramePicker() {
         <View>
           <View className="flex-row items-center justify-between mb-1">
             <Text className="text-xs text-gray-500">フレームサイズ</Text>
-            <Text className="text-xs font-medium text-gray-700">{Math.round(frameScale * 100)}%</Text>
+            <Text className="text-xs font-medium text-gray-700">{Math.round(Math.min(frameScale, maxScale) * 100)}%</Text>
           </View>
           <Slider
             minimumValue={0.5}
-            maximumValue={1.3}
+            maximumValue={maxScale}
             step={0.01}
-            value={frameScale}
+            value={Math.min(frameScale, maxScale)}
             onValueChange={setFrameScale}
             minimumTrackTintColor={colors.primary}
             maximumTrackTintColor="#e5e7eb"
@@ -71,7 +80,7 @@ export function FramePicker() {
           />
           <View className="flex-row justify-between">
             <Text className="text-xs text-gray-400">50%</Text>
-            <Text className="text-xs text-gray-400">130%</Text>
+            <Text className="text-xs text-gray-400">{Math.round(maxScale * 100)}%</Text>
           </View>
         </View>
       )}

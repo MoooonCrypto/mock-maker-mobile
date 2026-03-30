@@ -98,7 +98,7 @@ import {
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { FrameId, FrameScreenType } from '@/stores/useEditorStore';
 import { STICKER_ASSETS } from '@/constants/stickers';
-import { getPreset } from '@/constants/canvasPresets';
+import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
 import type { Layer } from '@/types';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
@@ -193,12 +193,14 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     let drawY: number;
 
     if (templateId === 'top-half') {
-      // Top-crop: scale frame so top ~2/3 is visible within the canvas
+      // Top-crop: scale so top 2/3 of frame fills the canvas height (bottom 1/3 hidden below).
+      // Frame intentionally extends beyond canvas width — only side bezels are clipped.
       const visibleFraction = 2 / 3;
       const scaleForTopCrop = (canvasHeight / visibleFraction) / imgH;
       const scaleForWidth   = canvasWidth / imgW;
       const baseTopScale    = Math.max(scaleForTopCrop, scaleForWidth);
-      scale = baseTopScale * frameScale;
+      const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
+      scale = baseTopScale * Math.min(frameScale, maxFS);
       const drawWidth  = imgW * scale;
       const drawHeight = imgH * scale;
       drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
@@ -207,7 +209,8 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     }
 
     const baseScale  = Math.min(canvasWidth / imgW, canvasHeight / imgH);
-    scale      = baseScale * frameScale;
+    const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
+    scale      = baseScale * Math.min(frameScale, maxFS);
     const drawWidth  = imgW * scale;
     const drawHeight = imgH * scale;
     drawX = (canvasWidth  - drawWidth)  / 2 + framePosition.x;
@@ -222,7 +225,8 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     const imgH = frameImage.height();
     const halfW  = canvasWidth / 2;
     const baseScale = Math.min(halfW / imgW, canvasHeight / imgH);
-    const scale     = baseScale * frameScale;
+    const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
+    const scale     = baseScale * Math.min(frameScale, maxFS);
     const drawWidth  = imgW * scale;
     const drawHeight = imgH * scale;
     const leftDrawX  = (halfW  - drawWidth)  / 2 + framePosition.x;

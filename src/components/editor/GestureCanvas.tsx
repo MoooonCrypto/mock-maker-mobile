@@ -4,7 +4,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { getPreset } from '@/constants/canvasPresets';
+import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
 
 interface Props {
   children: React.ReactNode;
@@ -128,11 +128,13 @@ export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY,
     frameStartScaleRef.current = frameScale;
   }, [frameScale]);
 
+  const maxFrameScale = getMaxFrameScale(canvasLogW, canvasLogH, templateId);
+
   const commitFrameScale = useCallback((scale: number) => {
-    const clamped = Math.min(Math.max(frameStartScaleRef.current * scale, 0.3), 2.0);
+    const clamped = Math.min(Math.max(frameStartScaleRef.current * scale, 0.3), maxFrameScale);
     setFrameScale(clamped);
     framePinchS.value = 1;
-  }, [setFrameScale, framePinchS]);
+  }, [setFrameScale, framePinchS, maxFrameScale]);
 
   // ─── Pinch ────────────────────────────────────────────────────────────────
 
