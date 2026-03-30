@@ -98,7 +98,7 @@ import {
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { FrameId, FrameScreenType } from '@/stores/useEditorStore';
 import { STICKER_ASSETS } from '@/constants/stickers';
-import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
+import { getPreset, getMaxFrameScale, isStoreCanvasPreset } from '@/constants/canvasPresets';
 import type { Layer } from '@/types';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
@@ -193,18 +193,28 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     let drawY: number;
 
     if (templateId === 'top-half') {
-      // Top-crop: scale so top 2/3 of frame fills the canvas height (bottom 1/3 hidden below).
-      // Frame intentionally extends beyond canvas width — only side bezels are clipped.
-      const visibleFraction = 2 / 3;
-      const scaleForTopCrop = (canvasHeight / visibleFraction) / imgH;
-      const scaleForWidth   = canvasWidth / imgW;
-      const baseTopScale    = Math.max(scaleForTopCrop, scaleForWidth);
       const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
-      scale = baseTopScale * Math.min(frameScale, maxFS);
+      const effectiveScale = Math.min(frameScale, maxFS);
+      const visibleFraction = 2 / 3;
+      const widthFitScale = canvasWidth / imgW;
+      const topCropScale = (canvasHeight / visibleFraction) / imgH;
+      const aspectRatio = canvasWidth / canvasHeight;
+      const baseTopScale = isStoreCanvasPreset(canvasPresetId)
+        ? topCropScale * 0.72
+        : aspectRatio >= 1
+        ? widthFitScale * 0.82
+        : aspectRatio >= 0.9
+        ? widthFitScale * 1.0
+        : widthFitScale * 1.15;
+
+      scale = baseTopScale * effectiveScale;
       const drawWidth  = imgW * scale;
       const drawHeight = imgH * scale;
+
       drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
-      drawY = framePosition.y; // frame top at canvas top
+      drawY = !isStoreCanvasPreset(canvasPresetId) && aspectRatio >= 1
+        ? framePosition.y
+        : canvasHeight - drawHeight * visibleFraction + framePosition.y;
       return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
     }
 
@@ -268,14 +278,19 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
       const hardcoded = FRAME_HARDCODED_BOUNDS[selectedFrameId];
       if (!hardcoded) { setFrameScreenRect(null, null); return; }
       const { minX, minY, maxX, maxY, type } = hardcoded;
+      const rectX = drawX + minX * scale;
+      const rectY = drawY + minY * scale;
+      const rectW = (maxX - minX + 1) * scale;
+      const rectH = (maxY - minY + 1) * scale;
+
       setFrameScreenRect({
-        x:      drawX + minX * scale,
-        y:      drawY + minY * scale,
-        width:  (maxX - minX + 1) * scale,
-        height: (maxY - minY + 1) * scale,
+        x: rectX,
+        y: rectY,
+        width: rectW,
+        height: rectH,
       }, type);
     }
-  }, [frameLayout, appIconLayout, frameEnabled, selectedFrameId, templateId]);
+  }, [appIconLayout, canvasHeight, canvasWidth, frameEnabled, frameLayout, selectedFrameId, setFrameScreenRect, templateId]);
 
   // Update both screenRects for double template
   useEffect(() => {
@@ -347,14 +362,16 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
         {selectedFrameId === 'iphone' && frameImage && frameLayout && templateId !== 'double' && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
-              <Image
-                image={frameImage}
-                x={frameLayout.drawX}
-                y={frameLayout.drawY}
-                width={frameLayout.drawWidth}
-                height={frameLayout.drawHeight}
-                fit="fill"
-              />
+              <Group clip={Skia.XYWHRect(0, 0, canvasWidth, canvasHeight)}>
+                <Image
+                  image={frameImage}
+                  x={frameLayout.drawX}
+                  y={frameLayout.drawY}
+                  width={frameLayout.drawWidth}
+                  height={frameLayout.drawHeight}
+                  fit="fill"
+                />
+              </Group>
             </Group>
           </Group>
         )}

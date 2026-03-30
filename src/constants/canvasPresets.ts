@@ -14,6 +14,10 @@ export interface CanvasPreset {
   exportH: number
 }
 
+export function isStoreCanvasPreset(id: CanvasPresetId): boolean {
+  return id === 'store-67' || id === 'store-69' || id === 'store-65'
+}
+
 export const CANVAS_PRESETS: CanvasPreset[] = [
   { id: 'store-67', label: '6.7インチ (1290×2796)', group: 'ストア申請用', exportW: 1290, exportH: 2796 },
   { id: 'store-69', label: '6.9インチ (1320×2868)', group: 'ストア申請用', exportW: 1320, exportH: 2868 },
@@ -44,8 +48,7 @@ export function getMaxFrameScale(
   padding = 0.95,
 ): number {
   if (templateId === 'top-half') {
-    // baseTopScale already produces ~2/3 crop. Cap at 1.0 to prevent further zoom.
-    return 1.0
+    return 1.6
   }
   const effectiveW = templateId === 'double' ? canvasW / 2 : canvasW
   const baseScale = Math.min(effectiveW / FRAME_IMG_W, canvasH / FRAME_IMG_H)

@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
-import { getPreset } from '@/constants/canvasPresets';
+import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
 import { t } from '@/i18n';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
@@ -67,18 +67,27 @@ function useSliderPanResponder(onChange: (ratio: number) => void) {
 
 function FrameSizePanel() {
   const frameScale = useEditorStore((s) => s.frameScale);
+  const templateId = useEditorStore((s) => s.templateId);
+  const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const [trackW, setTrackW] = useState(300);
+  const pixelRatio = PixelRatio.get();
+  const preset = getPreset(canvasPresetId);
+  const canvasLogW = preset.exportW / pixelRatio;
+  const canvasLogH = templateId === 'split' ? (preset.exportH / pixelRatio) / 2 : preset.exportH / pixelRatio;
+  const minScale = 0.3;
+  const maxScale = getMaxFrameScale(canvasLogW, canvasLogH, templateId);
+  const scaleRange = Math.max(maxScale - minScale, 0.001);
 
   const { pr, trackViewRef, onLayout } = useSliderPanResponder((r) => {
-    useEditorStore.getState().setFrameScale(0.3 + r * 1.7);
+    useEditorStore.getState().setFrameScale(minScale + r * scaleRange);
   });
 
-  const pct = Math.max(0, Math.min(1, (frameScale - 0.3) / 1.7));
+  const pct = Math.max(0, Math.min(1, (frameScale - minScale) / scaleRange));
 
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: '#e5e7eb' }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 }}>
-        {t('editor.frameSizeLabel', { pct: Math.round(frameScale * 100) })}
+        {t('editor.frameSizeLabel', { pct: Math.round(Math.min(frameScale, maxScale) * 100) })}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.frameSizeSmall')}</Text>

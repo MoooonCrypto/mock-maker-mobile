@@ -94,7 +94,7 @@ function templateDefaults(id: TemplateId): {
 } {
   switch (id) {
     case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
-    case 'double':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    case 'double':   return { selectedFrameId: 'iphone',    frameScale: 1.10, framePosition: { x: 0, y: 0 } };
     case 'top-half': return { selectedFrameId: 'iphone',    frameScale: 1.0,  framePosition: { x: 0, y: 0 } };
     case 'split':    return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
     case 'icon':     return { selectedFrameId: 'app-icon',  frameScale: 0.85, framePosition: { x: 0, y: 0 } };
