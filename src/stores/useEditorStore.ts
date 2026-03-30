@@ -3,6 +3,8 @@ import type { RefObject } from 'react';
 import type { CanvasRef } from '@shopify/react-native-skia';
 import { Layer, Background, ShadowConfig, StrokeConfig } from '../types';
 import type { TemplateId } from '../constants/templates';
+import type { CanvasPresetId } from '../constants/canvasPresets';
+import { DEFAULT_PRESET_ID } from '../constants/canvasPresets';
 
 type ScreenRect = { x: number; y: number; width: number; height: number };
 
@@ -24,6 +26,7 @@ interface EditorState {
   background: Background;
   activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame' | 'sticker';
   canvasRef: RefObject<CanvasRef | null> | null;
+  canvasPresetId: CanvasPresetId;
 
   setTemplateId: (id: TemplateId) => void;
   setSessionName: (name: string) => void;
@@ -41,6 +44,7 @@ interface EditorState {
   setActiveTool: (tool: EditorState['activeTool']) => void;
   addStickerLayer: (key: string, size: { width: number; height: number }) => void;
   setCanvasRef: (ref: RefObject<CanvasRef | null>) => void;
+  setCanvasPresetId: (id: CanvasPresetId) => void;
   reset: () => void;
 }
 
@@ -89,12 +93,13 @@ function templateDefaults(id: TemplateId): {
   framePosition: { x: number; y: number };
 } {
   switch (id) {
-    case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: -120 } };
-    case 'double':   return { selectedFrameId: 'iphone',    frameScale: 1.15, framePosition: { x: 0, y: -80  } };
-    case 'top-half': return { selectedFrameId: 'iphone',    frameScale: 1.3,  framePosition: { x: 0, y: 80   } };
-    case 'split':    return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0    } };
-    case 'icon':     return { selectedFrameId: 'app-icon',  frameScale: 0.85, framePosition: { x: 0, y: -100 } };
-    default:         return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0    } };
+    case 'single':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    case 'double':   return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    case 'top-half': return { selectedFrameId: 'iphone',    frameScale: 1.0,  framePosition: { x: 0, y: 0 } };
+    case 'split':    return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    case 'icon':     return { selectedFrameId: 'app-icon',  frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    case 'free':     return { selectedFrameId: 'none',      frameScale: 0.85, framePosition: { x: 0, y: 0 } };
+    default:         return { selectedFrameId: 'iphone',    frameScale: 0.85, framePosition: { x: 0, y: 0 } };
   }
 }
 
@@ -105,13 +110,14 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedLayerId: null,
   selectedFrameId: 'iphone',
   frameScale: 0.85,
-  framePosition: { x: 0, y: -80 },
+  framePosition: { x: 0, y: 0 },
   frameScreenRect: null,
   frameScreenRect2: null,
   frameScreenType: null,
   background: defaultBackground,
   activeTool: 'select',
   canvasRef: null,
+  canvasPresetId: DEFAULT_PRESET_ID,
 
   setTemplateId: (id) => set({
     templateId: id,
@@ -153,6 +159,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { layers: [...s.layers, layer], selectedLayerId: layer.id };
     }),
   setCanvasRef: (ref) => set({ canvasRef: ref }),
+  setCanvasPresetId: (id) => set((s) => ({
+    canvasPresetId: id,
+    ...templateDefaults(s.templateId),
+    frameScreenRect: null,
+    frameScreenRect2: null,
+    frameScreenType: null,
+  })),
   reset: () =>
     set({
       templateId: 'single',
@@ -161,12 +174,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedLayerId: null,
       selectedFrameId: 'iphone',
       frameScale: 0.85,
-      framePosition: { x: 0, y: -120 },
+      framePosition: { x: 0, y: 0 },
       frameScreenRect: null,
       frameScreenRect2: null,
       frameScreenType: null,
       background: defaultBackground,
       activeTool: 'select',
       canvasRef: null,
+      canvasPresetId: DEFAULT_PRESET_ID,
     }),
 }));

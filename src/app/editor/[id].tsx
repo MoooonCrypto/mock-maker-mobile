@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
-import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform, PanResponder, PixelRatio } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
-import { getCanvasHeight } from '@/constants/templates';
+import { getPreset } from '@/constants/canvasPresets';
 import { t } from '@/i18n';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
@@ -21,6 +21,7 @@ import { LayerPanel } from '@/components/editor/LayerPanel';
 import { TextEditPanel } from '@/components/editor/TextEditPanel';
 import { StickerPicker } from '@/components/editor/StickerPicker';
 import { ImageCropModal } from '@/components/editor/ImageCropModal';
+import { CanvasPicker } from '@/components/editor/CanvasPicker';
 import { colors } from '@/constants/theme';
 import MobileAds, {
   InterstitialAd,
@@ -172,7 +173,10 @@ export default function EditorScreen() {
     canvasRef,
     reset,
     templateId,
+    canvasPresetId,
   } = useEditorStore();
+
+  const [canvasAreaH, setCanvasAreaH] = useState(0);
 
   const frameEnabled = selectedFrameId !== 'none';
 
@@ -257,7 +261,10 @@ export default function EditorScreen() {
 
   // ─── Export ────────────────────────────────────────────────────────────────
 
-  const canvasHeight = getCanvasHeight(screenWidth, templateId);
+  const pixelRatio = PixelRatio.get();
+  const _preset = getPreset(canvasPresetId);
+  const canvasLogW = _preset.exportW / pixelRatio;
+  const canvasLogH = templateId === 'split' ? (_preset.exportH / pixelRatio) / 2 : _preset.exportH / pixelRatio;
 
   const exportTo = async (target: 'photos' | 'files') => {
     if (!canvasRef?.current) {
@@ -275,10 +282,10 @@ export default function EditorScreen() {
       }
 
       if (templateId === 'split') {
-        const halfW = Math.round(screenWidth / 2);
+        const halfW = canvasLogW / 2;
         const bounds = [
-          { x: 0,     y: 0, width: halfW, height: canvasHeight },
-          { x: halfW, y: 0, width: halfW, height: canvasHeight },
+          { x: 0,     y: 0, width: halfW, height: canvasLogH },
+          { x: halfW, y: 0, width: halfW, height: canvasLogH },
         ];
         const ts = Date.now();
         for (let i = 0; i < bounds.length; i++) {
@@ -394,7 +401,7 @@ export default function EditorScreen() {
 
   const screenAspectRatio = frameScreenRect
     ? frameScreenRect.height / frameScreenRect.width
-    : 2688 / 1242;
+    : _preset.exportH / _preset.exportW;
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
@@ -412,10 +419,12 @@ export default function EditorScreen() {
       </View>
 
       {/* Canvas area */}
-      <View style={{ flex: 1, overflow: 'hidden' }}>
-        <GestureCanvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS}>
-          <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
-        </GestureCanvas>
+      <View style={{ flex: 1, backgroundColor: '#d1d5db' }} onLayout={(e) => setCanvasAreaH(e.nativeEvent.layout.height)}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <GestureCanvas canvasAreaH={canvasAreaH} dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS}>
+            <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
+          </GestureCanvas>
+        </View>
         {activeTool !== 'select' && (
           <TouchableOpacity
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -443,6 +452,7 @@ export default function EditorScreen() {
         {selectedIsText && activeTool === 'text' && (
           <TextEditPanel onClose={() => { selectLayer(null); setActiveTool('select'); }} />
         )}
+        {activeTool === 'canvas' && <CanvasPicker />}
         <Toolbar onMediaPress={handleMediaPick} />
       </View>
 

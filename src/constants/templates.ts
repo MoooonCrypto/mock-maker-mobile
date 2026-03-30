@@ -1,4 +1,4 @@
-export type TemplateId = 'single' | 'double' | 'top-half' | 'split' | 'icon';
+export type TemplateId = 'single' | 'double' | 'top-half' | 'split' | 'icon' | 'free';
 
 export interface TemplateConfig {
   id: TemplateId;
@@ -38,11 +38,18 @@ export const TEMPLATES: TemplateConfig[] = [
     description: 'アプリアイコン形式・正方形',
     exportCount: 1,
   },
+  {
+    id: 'free',
+    label: 'フレームなし',
+    description: '自由配置・スタンプ',
+    exportCount: 1,
+  },
 ];
 
 /** キャンバス高さ = screenWidth × この値 */
 export function getCanvasHeightMultiplier(templateId: TemplateId): number {
   if (templateId === 'split') return (2688 / 1242) / 2;
+  if (templateId === 'free') return 2688 / 1242;
   return 2688 / 1242;
 }
 

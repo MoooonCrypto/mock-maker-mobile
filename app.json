@@ -17,8 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mockmaker.mobile",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
-        "NSPhotoLibraryAddUsageDescription": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+        "NSPhotoLibraryUsageDescription": "Used to save mockup images to your photo library. / モックアップ画像をフォトライブラリに保存するために使用します。",
+        "NSPhotoLibraryAddUsageDescription": "Used to save mockup images to your photo library. / モックアップ画像をフォトライブラリに保存するために使用します。",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -55,17 +55,23 @@
       ],
       "expo-dev-client",
       [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "This app uses anonymous ad tracking to display relevant ads. Declining will not affect app functionality. / 広告表示のために匿名のトラッキングを使用します。拒否してもアプリの機能に影響はありません。"
+        }
+      ],
+      [
         "expo-media-library",
         {
-          "photosPermission": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
-          "savePhotosPermission": "モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+          "photosPermission": "Used to save mockup images and videos to your photo library. / モックアップ画像・動画をフォトライブラリに保存するために使用します。",
+          "savePhotosPermission": "Used to save mockup images and videos to your photo library. / モックアップ画像・動画をフォトライブラリに保存するために使用します。",
           "isAccessMediaLocationEnabled": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "モックアップ用の画像・動画を選択するために使用します。"
+          "photosPermission": "Used to select images and videos for your mockup. / モックアップ用の画像・動画を選択するために使用します。"
         }
       ]
     ],

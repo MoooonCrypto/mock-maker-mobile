@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { View, PixelRatio } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Canvas as SkiaCanvas,
@@ -98,7 +98,7 @@ import {
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { FrameId, FrameScreenType } from '@/stores/useEditorStore';
 import { STICKER_ASSETS } from '@/constants/stickers';
-import { getCanvasHeight } from '@/constants/templates';
+import { getPreset } from '@/constants/canvasPresets';
 import type { Layer } from '@/types';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
@@ -131,10 +131,14 @@ interface CanvasProps {
 }
 
 export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: CanvasProps) {
-  const { width: screenWidth } = useWindowDimensions();
-  const canvasWidth  = screenWidth;
-
   const templateId = useEditorStore((s) => s.templateId);
+  const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
+  const pixelRatio = PixelRatio.get();
+  const _preset = getPreset(canvasPresetId);
+  const canvasWidth  = _preset.exportW / pixelRatio;
+  const canvasHeight = templateId === 'split'
+    ? (_preset.exportH / pixelRatio) / 2
+    : _preset.exportH / pixelRatio;
 
   // Register all fonts as RN font families so TextEditPanel preview can use them
   useFonts({
@@ -159,7 +163,6 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     Merriweather_400Regular,  Merriweather_700Bold,
     Roboto: require('../../../assets/fonts/Roboto-Regular.ttf'),
   } as any);
-  const canvasHeight = getCanvasHeight(screenWidth, templateId);
 
   const canvasRef    = useCanvasRef();
   const setCanvasRef = useEditorStore((s) => s.setCanvasRef);
@@ -184,12 +187,31 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
     if (!frameImage || selectedFrameId !== 'iphone' || templateId === 'double') return null;
     const imgW = frameImage.width();
     const imgH = frameImage.height();
+
+    let scale: number;
+    let drawX: number;
+    let drawY: number;
+
+    if (templateId === 'top-half') {
+      // Top-crop: scale frame so top ~2/3 is visible within the canvas
+      const visibleFraction = 2 / 3;
+      const scaleForTopCrop = (canvasHeight / visibleFraction) / imgH;
+      const scaleForWidth   = canvasWidth / imgW;
+      const baseTopScale    = Math.max(scaleForTopCrop, scaleForWidth);
+      scale = baseTopScale * frameScale;
+      const drawWidth  = imgW * scale;
+      const drawHeight = imgH * scale;
+      drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
+      drawY = framePosition.y; // frame top at canvas top
+      return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
+    }
+
     const baseScale  = Math.min(canvasWidth / imgW, canvasHeight / imgH);
-    const scale      = baseScale * frameScale;
+    scale      = baseScale * frameScale;
     const drawWidth  = imgW * scale;
     const drawHeight = imgH * scale;
-    const drawX = (canvasWidth  - drawWidth)  / 2 + framePosition.x;
-    const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
+    drawX = (canvasWidth  - drawWidth)  / 2 + framePosition.x;
+    drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
     return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
   }, [frameImage, canvasWidth, canvasHeight, frameScale, framePosition, selectedFrameId, templateId]);
 

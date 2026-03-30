@@ -62,12 +62,19 @@ function IconPreview() {
   );
 }
 
+function FreePreview() {
+  return (
+    <View style={{ height: 80 }} />
+  );
+}
+
 const PREVIEWS: Record<TemplateId, React.FC> = {
   single:     SinglePreview,
   double:     DoublePreview,
   'top-half': TopHalfPreview,
   split:      SplitPreview,
   icon:       IconPreview,
+  free:       FreePreview,
 };
 
 // ─── Screen ───────────────────────────────────────────────────────────────────

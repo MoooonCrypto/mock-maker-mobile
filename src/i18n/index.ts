@@ -13,9 +13,11 @@ const translations = {
       topHalf:   { label: 'トップクロップ', description: '画面上部をアップで表示' },
       split:     { label: 'スプリット',    description: '2分割・並べると1台が完成' },
       icon:      { label: 'アイコン',      description: 'アプリアイコン形式・正方形' },
+      free:      { label: 'フレームなし',  description: '自由配置・スタンプ' },
     },
     toolbar: {
       frame:      'フレーム',
+      canvas:     'キャンバス',
       background: '背景',
       text:       'テキスト',
       sticker:    'スタンプ',
@@ -101,9 +103,11 @@ const translations = {
       topHalf:   { label: 'Top Crop',  description: 'Zoomed view of screen top' },
       split:     { label: 'Split',     description: '2-part layout, combines into 1' },
       icon:      { label: 'Icon',      description: 'App icon, square format' },
+      free:      { label: 'No Frame',  description: 'Free layout & stickers' },
     },
     toolbar: {
       frame:      'Frame',
+      canvas:     'Canvas',
       background: 'BG',
       text:       'Text',
       sticker:    'Sticker',

@@ -11,6 +11,7 @@ interface Props {
 
 const tools = [
   { key: 'frame'      as const, icon: 'phone-portrait-outline' as const, labelKey: 'toolbar.frame' },
+  { key: 'canvas'     as const, icon: 'crop-outline'           as const, labelKey: 'toolbar.canvas' },
   { key: 'background' as const, icon: 'color-palette-outline'  as const, labelKey: 'toolbar.background' },
   { key: 'text'       as const, icon: 'text-outline'           as const, labelKey: 'toolbar.text' },
   { key: 'sticker'    as const, icon: 'pricetag-outline'       as const, labelKey: 'toolbar.sticker' },
@@ -20,6 +21,7 @@ const tools = [
 
 export function Toolbar({ onMediaPress }: Props) {
   const { activeTool, setActiveTool, selectedLayerId, removeLayer, selectLayer } = useEditorStore();
+  const templateId = useEditorStore((s) => s.templateId);
 
   const handlePress = (key: typeof tools[number]['key']) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -40,18 +42,20 @@ export function Toolbar({ onMediaPress }: Props) {
     <View className="bg-white border-t border-gray-200 flex-row justify-around py-2 px-2">
       {tools.map(({ key, icon, labelKey }) => {
         const isActive = activeTool === key;
+        const isDisabled = key === 'frame' && templateId === 'free';
         return (
           <TouchableOpacity
             key={key}
-            onPress={() => handlePress(key)}
+            onPress={() => !isDisabled && handlePress(key)}
             className="items-center py-1 px-2"
+            style={isDisabled ? { opacity: 0.35 } : undefined}
           >
             <Ionicons
               name={icon}
               size={22}
-              color={isActive ? colors.primary : colors.textSecondary}
+              color={isDisabled ? colors.textSecondary : isActive ? colors.primary : colors.textSecondary}
             />
-            <Text className={`text-xs mt-0.5 ${isActive ? 'text-primary font-semibold' : 'text-gray-400'}`}>
+            <Text className={`text-xs mt-0.5 ${isActive && !isDisabled ? 'text-primary font-semibold' : 'text-gray-400'}`}>
               {t(labelKey)}
             </Text>
           </TouchableOpacity>

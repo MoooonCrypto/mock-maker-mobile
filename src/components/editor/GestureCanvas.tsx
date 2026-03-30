@@ -1,13 +1,14 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions, PixelRatio } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { getCanvasHeight } from '@/constants/templates';
+import { getPreset } from '@/constants/canvasPresets';
 
 interface Props {
   children: React.ReactNode;
+  canvasAreaH: number;
   dragOffsetX: SharedValue<number>;
   dragOffsetY: SharedValue<number>;
   pinchScale:  SharedValue<number>;
@@ -16,10 +17,17 @@ interface Props {
   framePinchS: SharedValue<number>;
 }
 
-export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: Props) {
+export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: Props) {
   const { width: screenWidth } = useWindowDimensions();
-  const templateId  = useEditorStore((s) => s.templateId);
-  const canvasHeight = getCanvasHeight(screenWidth, templateId);
+  const templateId     = useEditorStore((s) => s.templateId);
+  const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
+  const pixelRatio = PixelRatio.get();
+  const _preset = getPreset(canvasPresetId);
+  const canvasLogW = _preset.exportW / pixelRatio;
+  const canvasLogH = templateId === 'split' ? (_preset.exportH / pixelRatio) / 2 : _preset.exportH / pixelRatio;
+  const displayScale = canvasAreaH > 0
+    ? Math.min(screenWidth / canvasLogW, canvasAreaH / canvasLogH)
+    : screenWidth / canvasLogW;
 
   const layers          = useEditorStore((s) => s.layers);
   const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
@@ -74,18 +82,18 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
     })
     .onUpdate((e) => {
       if (activeToolSV.value === 'frame') {
-        frameDragX.value = e.translationX;
-        frameDragY.value = e.translationY;
+        frameDragX.value = e.translationX / displayScale;
+        frameDragY.value = e.translationY / displayScale;
       } else if (selectedIdSV.value) {
-        dragOffsetX.value = e.translationX;
-        dragOffsetY.value = e.translationY;
+        dragOffsetX.value = e.translationX / displayScale;
+        dragOffsetY.value = e.translationY / displayScale;
       }
     })
     .onEnd((e) => {
       if (activeToolSV.value === 'frame') {
-        runOnJS(commitFrameDrag)(e.translationX, e.translationY);
+        runOnJS(commitFrameDrag)(e.translationX / displayScale, e.translationY / displayScale);
       } else if (selectedIdSV.value) {
-        runOnJS(commitDrag)(selectedIdSV.value, e.translationX, e.translationY);
+        runOnJS(commitDrag)(selectedIdSV.value, e.translationX / displayScale, e.translationY / displayScale);
       } else {
         dragOffsetX.value = 0;
         dragOffsetY.value = 0;
@@ -159,8 +167,10 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
   // ─── Tap (layer selection) ────────────────────────────────────────────────
 
   const tap = Gesture.Tap().runOnJS(true).onEnd((e) => {
-    const centerX = screenWidth / 2;
-    const centerY = canvasHeight / 2;
+    const centerX = canvasLogW / 2;
+    const centerY = canvasLogH / 2;
+    const tapX = e.x / displayScale;
+    const tapY = e.y / displayScale;
     let found: string | null = null;
 
     for (let i = layers.length - 1; i >= 0; i--) {
@@ -181,8 +191,8 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
         halfH = layer.size.height * 0.5;
       }
 
-      if (e.x >= lx - halfW && e.x <= lx + halfW &&
-          e.y >= ly - halfH && e.y <= ly + halfH) {
+      if (tapX >= lx - halfW && tapX <= lx + halfW &&
+          tapY >= ly - halfH && tapY <= ly + halfH) {
         found = layer.id;
         break;
       }
@@ -192,11 +202,24 @@ export function GestureCanvas({ children, dragOffsetX, dragOffsetY, pinchScale, 
 
   const composed = Gesture.Simultaneous(pan, pinch, tap);
 
+  const displayW = canvasLogW * displayScale;
+  const displayH = canvasLogH * displayScale;
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ width: displayW, height: displayH }}>
       <GestureDetector gesture={composed}>
-        <View style={{ flex: 1 }}>
-          {children}
+        <View style={{ width: displayW, height: displayH, overflow: 'hidden' }}>
+          <View style={{
+            width: canvasLogW,
+            height: canvasLogH,
+            transform: [
+              { translateX: canvasLogW * (displayScale - 1) / 2 },
+              { translateY: canvasLogH * (displayScale - 1) / 2 },
+              { scale: displayScale },
+            ],
+          }}>
+            {children}
+          </View>
         </View>
       </GestureDetector>
     </GestureHandlerRootView>
