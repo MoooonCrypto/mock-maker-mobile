@@ -30,11 +30,10 @@ export function LayerPanel() {
           const isSel = selectedLayerId === layer.id;
           const label =
             layer.type === 'image' ? t('layers.typeImage') :
-            layer.type === 'video' ? t('layers.typeVideo') :
             `${t('layers.typeText')}${layer.uri.slice(0, 12)}${layer.uri.length > 12 ? '…' : ''}`;
           const icon =
             layer.type === 'image' ? 'image-outline'   :
-            layer.type === 'video' ? 'videocam-outline' : 'text-outline';
+            'text-outline';
 
           return (
             <TouchableOpacity

@@ -1,10 +1,8 @@
 import '../global.css';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import MobileAds from 'react-native-google-mobile-ads';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
@@ -15,10 +13,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function init() {
-      // iOS: ATT ダイアログを表示してから広告SDKを初期化
-      if (Platform.OS === 'ios') {
-        await requestTrackingPermissionsAsync();
-      }
       await MobileAds().initialize();
       await loadSettings();
       SplashScreen.hideAsync();

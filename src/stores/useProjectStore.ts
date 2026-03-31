@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Directory, Paths } from 'expo-file-system';
 import type { Layer, Background } from '../types';
 import type { FrameId } from './useEditorStore';
+import { deleteSecureJson, getSecureJson, setSecureJson } from '../services/secureStorage';
 
 const PROJECT_LIST_KEY  = 'mockmaker_project_list';
 const PROJECT_DATA_PREFIX = 'mockmaker_project_data_';
@@ -47,7 +48,7 @@ function mediaDir(projectId: string): Directory {
 async function ensurePermanentUri(uri: string, projectId: string): Promise<string> {
   if (!uri) return uri;
   if (uri.startsWith('ph://')) return uri;
-  if (uri.startsWith(Paths.document)) return uri;
+  if (uri.startsWith(Paths.document.uri)) return uri;
 
   try {
     const dir = mediaDir(projectId);
@@ -70,11 +71,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   loadProjectList: async () => {
     try {
-      const raw = await AsyncStorage.getItem(PROJECT_LIST_KEY);
-      if (raw) {
-        const parsed: ProjectMeta[] = JSON.parse(raw);
-        set({ projects: parsed.sort((a, b) => b.updatedAt - a.updatedAt) });
+      const secureProjects = await getSecureJson<ProjectMeta[]>(PROJECT_LIST_KEY);
+      if (secureProjects) {
+        set({ projects: secureProjects.sort((a, b) => b.updatedAt - a.updatedAt) });
+        return;
       }
+
+      const raw = await AsyncStorage.getItem(PROJECT_LIST_KEY);
+      if (!raw) return;
+
+      const parsed: ProjectMeta[] = JSON.parse(raw);
+      const sorted = parsed.sort((a, b) => b.updatedAt - a.updatedAt);
+      set({ projects: sorted });
+      await setSecureJson(PROJECT_LIST_KEY, sorted);
+      await AsyncStorage.removeItem(PROJECT_LIST_KEY);
     } catch {
       // use empty list
     }
@@ -87,7 +97,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // Ensure all media URIs are permanent
     const permanentLayers: Layer[] = await Promise.all(
       input.layers.map(async (layer) => {
-        if (layer.type === 'image' || layer.type === 'video') {
+        if (layer.type === 'image') {
           const permanentUri = await ensurePermanentUri(layer.uri, projectId);
           return { ...layer, uri: permanentUri };
         }
@@ -105,8 +115,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       updatedAt: now,
     };
 
-    // Store project data in AsyncStorage
-    await AsyncStorage.setItem(PROJECT_DATA_PREFIX + projectId, JSON.stringify(projectData));
+    await setSecureJson(PROJECT_DATA_PREFIX + projectId, projectData);
 
     // Update project list
     const meta: ProjectMeta = {
@@ -118,14 +127,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const existing = get().projects;
     const updated = [meta, ...existing.filter((p) => p.id !== projectId)];
     set({ projects: updated });
-    await AsyncStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(updated));
+    await setSecureJson(PROJECT_LIST_KEY, updated);
+    await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + projectId);
+    await AsyncStorage.removeItem(PROJECT_LIST_KEY);
   },
 
   loadProject: async (id) => {
     try {
+      const secureProject = await getSecureJson<ProjectData>(PROJECT_DATA_PREFIX + id);
+      if (secureProject) return secureProject;
+
       const raw = await AsyncStorage.getItem(PROJECT_DATA_PREFIX + id);
       if (!raw) return null;
-      return JSON.parse(raw) as ProjectData;
+
+      const parsed = JSON.parse(raw) as ProjectData;
+      await setSecureJson(PROJECT_DATA_PREFIX + id, parsed);
+      await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + id);
+      return parsed;
     } catch {
       return null;
     }
@@ -133,6 +151,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteProject: async (id) => {
     try {
+      await deleteSecureJson(PROJECT_DATA_PREFIX + id);
       await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + id);
       // Clean up media files
       const dir = new Directory(new Directory(Paths.document, 'projects'), id);
@@ -142,6 +161,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
     const updated = get().projects.filter((p) => p.id !== id);
     set({ projects: updated });
-    await AsyncStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(updated));
+    await setSecureJson(PROJECT_LIST_KEY, updated);
+    await AsyncStorage.removeItem(PROJECT_LIST_KEY);
   },
 }));
