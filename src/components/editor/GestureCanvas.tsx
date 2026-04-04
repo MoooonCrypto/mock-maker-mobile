@@ -168,6 +168,17 @@ export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY,
 
   // ─── Tap (layer selection) ────────────────────────────────────────────────
 
+  const imageHitBox = useCallback((width: number, height: number) => {
+    const ar = (width || 1) / (height || 1);
+    const maxW = canvasLogW * 0.9;
+    const maxH = canvasLogH * 0.9;
+
+    if (ar >= maxW / maxH) {
+      return { width: maxW, height: maxW / ar };
+    }
+    return { width: maxH * ar, height: maxH };
+  }, [canvasLogH, canvasLogW]);
+
   const tap = Gesture.Tap().runOnJS(true).onEnd((e) => {
     const centerX = canvasLogW / 2;
     const centerY = canvasLogH / 2;
@@ -180,12 +191,18 @@ export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY,
 
       let lx: number, ly: number, halfW: number, halfH: number;
 
-      if (layer.type !== 'text' && layer.type !== 'sticker' && frameEnabled && frameScreenRect) {
+      if (layer.type === 'image' && frameEnabled && frameScreenRect) {
         const rect = (layer.frameSlot === 1 && frameScreenRect2) ? frameScreenRect2 : frameScreenRect;
         lx    = rect.x + rect.width  / 2;
         ly    = rect.y + rect.height / 2;
         halfW = rect.width  / 2;
         halfH = rect.height / 2;
+      } else if (layer.type === 'image') {
+        const rendered = imageHitBox(layer.size.width, layer.size.height);
+        lx    = centerX + layer.position.x;
+        ly    = centerY + layer.position.y;
+        halfW = rendered.width * 0.5;
+        halfH = rendered.height * 0.5;
       } else {
         lx    = centerX + layer.position.x;
         ly    = centerY + layer.position.y;

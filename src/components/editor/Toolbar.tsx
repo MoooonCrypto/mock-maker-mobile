@@ -1,4 +1,4 @@
-import { View, TouchableOpacity, Text } from 'react-native';
+import { View, TouchableOpacity, Text, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -20,8 +20,13 @@ const tools = [
 ] as const;
 
 export function Toolbar({ onMediaPress }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
   const { activeTool, setActiveTool, selectedLayerId, removeLayer, selectLayer } = useEditorStore();
   const templateId = useEditorStore((s) => s.templateId);
+  const compact = screenWidth <= 375;
+  const iconSize = compact ? 20 : 22;
+  const labelStyle = compact ? 'text-[10px]' : 'text-xs';
+  const verticalPadding = compact ? 'py-0.5' : 'py-1';
 
   const handlePress = (key: typeof tools[number]['key']) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -39,7 +44,7 @@ export function Toolbar({ onMediaPress }: Props) {
   };
 
   return (
-    <View className="bg-white border-t border-gray-200 flex-row justify-around py-2 px-2">
+    <View className={`bg-white border-t border-gray-200 flex-row ${compact ? 'py-1 px-0.5' : 'py-2 px-2'}`}>
       {tools.map(({ key, icon, labelKey }) => {
         const isActive = activeTool === key;
         const isDisabled = key === 'frame' && templateId === 'free';
@@ -47,15 +52,20 @@ export function Toolbar({ onMediaPress }: Props) {
           <TouchableOpacity
             key={key}
             onPress={() => !isDisabled && handlePress(key)}
-            className="items-center py-1 px-2"
+            className={`items-center flex-1 min-w-0 ${verticalPadding} px-0.5`}
             style={isDisabled ? { opacity: 0.35 } : undefined}
           >
             <Ionicons
               name={icon}
-              size={22}
+              size={iconSize}
               color={isDisabled ? colors.textSecondary : isActive ? colors.primary : colors.textSecondary}
             />
-            <Text className={`text-xs mt-0.5 ${isActive && !isDisabled ? 'text-primary font-semibold' : 'text-gray-400'}`}>
+            <Text
+              className={`${labelStyle} mt-0.5 ${isActive && !isDisabled ? 'text-primary font-semibold' : 'text-gray-400'}`}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {t(labelKey)}
             </Text>
           </TouchableOpacity>
@@ -65,10 +75,15 @@ export function Toolbar({ onMediaPress }: Props) {
       {/* Delete button — always visible, active only when a layer is selected */}
       <TouchableOpacity
         onPress={handleDelete}
-        className="items-center py-1 px-2"
+        className={`items-center flex-1 min-w-0 ${verticalPadding} px-0.5`}
       >
-        <Ionicons name="trash-outline" size={22} color={hasSelection ? '#ef4444' : '#d1d5db'} />
-        <Text className={`text-xs mt-0.5 ${hasSelection ? 'text-red-400' : 'text-gray-300'}`}>
+        <Ionicons name="trash-outline" size={iconSize} color={hasSelection ? '#ef4444' : '#d1d5db'} />
+        <Text
+          className={`${labelStyle} mt-0.5 ${hasSelection ? 'text-red-400' : 'text-gray-300'}`}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {t('toolbar.delete')}
         </Text>
       </TouchableOpacity>

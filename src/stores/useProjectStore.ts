@@ -1,167 +1,247 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { File, Directory, Paths } from 'expo-file-system';
-import type { Layer, Background } from '../types';
-import type { FrameId } from './useEditorStore';
-import { deleteSecureJson, getSecureJson, setSecureJson } from '../services/secureStorage';
+import { Directory, File, Paths } from 'expo-file-system';
+import type { Background, Layer } from '../types';
+import type { PersistedEditorState, FrameId } from './useEditorStore';
+import type { TemplateId } from '@/constants/templates';
+import type { CanvasPresetId } from '@/constants/canvasPresets';
 
-const PROJECT_LIST_KEY  = 'mockmaker_project_list';
-const PROJECT_DATA_PREFIX = 'mockmaker_project_data_';
+const PROJECT_LIST_KEY = 'mockmaker_project_list_v2';
+const PROJECTS_DIR_NAME = 'projects';
+const PROJECT_JSON_NAME = 'project.json';
+const PROJECT_THUMBNAIL_NAME = 'thumbnail.png';
 
 export interface ProjectMeta {
   id: string;
   name: string;
+  templateId: TemplateId;
+  thumbnailUri?: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export interface ProjectData extends ProjectMeta {
+export interface ProjectData extends ProjectMeta, PersistedEditorState {}
+
+interface SaveProjectInput extends PersistedEditorState {
+  id: string;
+  thumbnailUri?: string;
+}
+
+interface SerializedProjectData {
+  id: string;
+  sessionName: string;
+  templateId: TemplateId;
   layers: Layer[];
   background: Background;
   selectedFrameId: FrameId;
+  frameScale: number;
+  framePosition: { x: number; y: number };
+  canvasPresetId: CanvasPresetId;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface ProjectStore {
   projects: ProjectMeta[];
   loadProjectList: () => Promise<void>;
-  saveProject: (data: Omit<ProjectData, 'createdAt' | 'updatedAt'> & { createdAt?: number }) => Promise<void>;
+  saveProject: (data: SaveProjectInput) => Promise<void>;
   loadProject: (id: string) => Promise<ProjectData | null>;
   deleteProject: (id: string) => Promise<void>;
 }
 
-// ── Media file persistence ────────────────────────────────────────────────────
-
-function mediaDir(projectId: string): Directory {
-  const base = new Directory(Paths.document, 'projects');
-  if (!base.exists) base.create();
-  const d = new Directory(base, projectId);
-  if (!d.exists) d.create();
-  return d;
+function projectsRootDir(): Directory {
+  const dir = new Directory(Paths.document, PROJECTS_DIR_NAME);
+  if (!dir.exists) {
+    dir.create({ idempotent: true, intermediates: true });
+  }
+  return dir;
 }
 
-/**
- * Copy a media URI to permanent project storage if needed.
- * - ph:// (Photos asset) — already permanent, return as-is
- * - file:// in documents — already saved, return as-is
- * - anything else (temp) — copy to documents/projects/{id}/
- */
-async function ensurePermanentUri(uri: string, projectId: string): Promise<string> {
-  if (!uri) return uri;
-  if (uri.startsWith('ph://')) return uri;
-  if (uri.startsWith(Paths.document.uri)) return uri;
+function projectDir(projectId: string): Directory {
+  const dir = new Directory(projectsRootDir(), projectId);
+  if (!dir.exists) {
+    dir.create({ idempotent: true, intermediates: true });
+  }
+  return dir;
+}
+
+function projectJsonFile(projectId: string): File {
+  return new File(projectDir(projectId), PROJECT_JSON_NAME);
+}
+
+function projectThumbnailFile(projectId: string): File {
+  return new File(projectDir(projectId), PROJECT_THUMBNAIL_NAME);
+}
+
+async function readProjectList(): Promise<ProjectMeta[]> {
+  const raw = await AsyncStorage.getItem(PROJECT_LIST_KEY);
+  if (!raw) return [];
 
   try {
-    const dir = mediaDir(projectId);
-    const filename = uri.split('/').pop() ?? `media_${Date.now()}`;
-    const dest = new File(dir, filename);
-    if (!dest.exists) {
-      const src = new File(uri);
-      if (src.exists) src.copy(dest);
-    }
-    return dest.exists ? dest.uri : uri;
+    const parsed = JSON.parse(raw) as ProjectMeta[];
+    return parsed.sort((a, b) => b.updatedAt - a.updatedAt);
   } catch {
-    return uri; // fallback: use original URI
+    return [];
   }
 }
 
-// ── Store ─────────────────────────────────────────────────────────────────────
+async function writeProjectList(projects: ProjectMeta[]) {
+  await AsyncStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(projects));
+}
+
+async function ensurePermanentUri(uri: string, projectId: string, targetName?: string): Promise<string> {
+  if (!uri) return uri;
+  if (uri.startsWith('ph://')) return uri;
+
+  const destination = targetName
+    ? new File(projectDir(projectId), targetName)
+    : new File(projectDir(projectId), uri.split('/').pop() ?? `media_${Date.now()}`);
+
+  if (uri === destination.uri) return uri;
+
+  try {
+    if (destination.exists) {
+      destination.delete();
+    }
+
+    const source = new File(uri);
+    if (source.exists) {
+      source.copy(destination);
+      return destination.uri;
+    }
+  } catch {
+    return uri;
+  }
+
+  return uri;
+}
+
+async function persistProjectData(data: SerializedProjectData) {
+  const file = projectJsonFile(data.id);
+  if (!file.exists) {
+    file.create({ intermediates: true, overwrite: true });
+  }
+  file.write(JSON.stringify(data));
+}
+
+async function readProjectData(id: string): Promise<SerializedProjectData | null> {
+  try {
+    const file = projectJsonFile(id);
+    if (!file.exists) return null;
+    const raw = await file.text();
+    return JSON.parse(raw) as SerializedProjectData;
+  } catch {
+    return null;
+  }
+}
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
 
   loadProjectList: async () => {
-    try {
-      const secureProjects = await getSecureJson<ProjectMeta[]>(PROJECT_LIST_KEY);
-      if (secureProjects) {
-        set({ projects: secureProjects.sort((a, b) => b.updatedAt - a.updatedAt) });
-        return;
-      }
-
-      const raw = await AsyncStorage.getItem(PROJECT_LIST_KEY);
-      if (!raw) return;
-
-      const parsed: ProjectMeta[] = JSON.parse(raw);
-      const sorted = parsed.sort((a, b) => b.updatedAt - a.updatedAt);
-      set({ projects: sorted });
-      await setSecureJson(PROJECT_LIST_KEY, sorted);
-      await AsyncStorage.removeItem(PROJECT_LIST_KEY);
-    } catch {
-      // use empty list
-    }
+    const projects = await readProjectList();
+    set({ projects });
   },
 
   saveProject: async (input) => {
     const now = Date.now();
-    const projectId = input.id;
+    const currentProjects = get().projects.length > 0 ? get().projects : await readProjectList();
+    const existing = currentProjects.find((project) => project.id === input.id);
+    const createdAt = existing?.createdAt ?? now;
 
-    // Ensure all media URIs are permanent
-    const permanentLayers: Layer[] = await Promise.all(
+    const layers = await Promise.all(
       input.layers.map(async (layer) => {
-        if (layer.type === 'image') {
-          const permanentUri = await ensurePermanentUri(layer.uri, projectId);
-          return { ...layer, uri: permanentUri };
-        }
-        return layer;
+        if (layer.type !== 'image') return layer;
+        const permanentUri = await ensurePermanentUri(layer.uri, input.id);
+        return { ...layer, uri: permanentUri };
       })
     );
 
-    const projectData: ProjectData = {
-      id: projectId,
-      name: input.name,
-      layers: permanentLayers,
-      background: input.background,
+    const background =
+      input.background.type === 'image' && input.background.imageUri
+        ? {
+            ...input.background,
+            imageUri: await ensurePermanentUri(
+              input.background.imageUri,
+              input.id,
+              'background.png'
+            ),
+          }
+        : input.background;
+
+    const thumbnailUri = input.thumbnailUri
+      ? await ensurePermanentUri(input.thumbnailUri, input.id, PROJECT_THUMBNAIL_NAME)
+      : existing?.thumbnailUri;
+
+    const serialized: SerializedProjectData = {
+      id: input.id,
+      sessionName: input.sessionName,
+      templateId: input.templateId,
+      layers,
+      background,
       selectedFrameId: input.selectedFrameId,
-      createdAt: input.createdAt ?? now,
+      frameScale: input.frameScale,
+      framePosition: input.framePosition,
+      canvasPresetId: input.canvasPresetId,
+      createdAt,
       updatedAt: now,
     };
 
-    await setSecureJson(PROJECT_DATA_PREFIX + projectId, projectData);
+    await persistProjectData(serialized);
 
-    // Update project list
     const meta: ProjectMeta = {
-      id: projectId,
-      name: input.name,
-      createdAt: projectData.createdAt,
+      id: input.id,
+      name: input.sessionName,
+      templateId: input.templateId,
+      thumbnailUri,
+      createdAt,
       updatedAt: now,
     };
-    const existing = get().projects;
-    const updated = [meta, ...existing.filter((p) => p.id !== projectId)];
-    set({ projects: updated });
-    await setSecureJson(PROJECT_LIST_KEY, updated);
-    await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + projectId);
-    await AsyncStorage.removeItem(PROJECT_LIST_KEY);
+
+    const updatedProjects = [meta, ...currentProjects.filter((project) => project.id !== input.id)].sort(
+      (a, b) => b.updatedAt - a.updatedAt
+    );
+
+    set({ projects: updatedProjects });
+    await writeProjectList(updatedProjects);
   },
 
   loadProject: async (id) => {
-    try {
-      const secureProject = await getSecureJson<ProjectData>(PROJECT_DATA_PREFIX + id);
-      if (secureProject) return secureProject;
+    const [projects, serialized] = await Promise.all([readProjectList(), readProjectData(id)]);
+    if (!serialized) return null;
 
-      const raw = await AsyncStorage.getItem(PROJECT_DATA_PREFIX + id);
-      if (!raw) return null;
+    const meta = projects.find((project) => project.id === id);
+    const thumbnailFile = projectThumbnailFile(id);
 
-      const parsed = JSON.parse(raw) as ProjectData;
-      await setSecureJson(PROJECT_DATA_PREFIX + id, parsed);
-      await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + id);
-      return parsed;
-    } catch {
-      return null;
-    }
+    return {
+      id,
+      name: meta?.name ?? serialized.sessionName,
+      templateId: serialized.templateId,
+      sessionName: serialized.sessionName,
+      layers: serialized.layers,
+      background: serialized.background,
+      selectedFrameId: serialized.selectedFrameId,
+      frameScale: serialized.frameScale,
+      framePosition: serialized.framePosition,
+      canvasPresetId: serialized.canvasPresetId,
+      thumbnailUri: meta?.thumbnailUri ?? (thumbnailFile.exists ? thumbnailFile.uri : undefined),
+      createdAt: meta?.createdAt ?? serialized.createdAt,
+      updatedAt: meta?.updatedAt ?? serialized.updatedAt,
+    };
   },
 
   deleteProject: async (id) => {
     try {
-      await deleteSecureJson(PROJECT_DATA_PREFIX + id);
-      await AsyncStorage.removeItem(PROJECT_DATA_PREFIX + id);
-      // Clean up media files
-      const dir = new Directory(new Directory(Paths.document, 'projects'), id);
-      if (dir.exists) dir.delete();
+      const dir = new Directory(projectsRootDir(), id);
+      if (dir.exists) {
+        dir.delete();
+      }
     } catch {
-      // ignore
+      // ignore local cleanup errors
     }
-    const updated = get().projects.filter((p) => p.id !== id);
-    set({ projects: updated });
-    await setSecureJson(PROJECT_LIST_KEY, updated);
-    await AsyncStorage.removeItem(PROJECT_LIST_KEY);
+
+    const updatedProjects = get().projects.filter((project) => project.id !== id);
+    set({ projects: updatedProjects });
+    await writeProjectList(updatedProjects);
   },
 }));

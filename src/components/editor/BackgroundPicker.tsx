@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { View, TouchableOpacity, ScrollView, Text, Modal } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
 import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
 import { runOnJS } from 'react-native-reanimated';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -9,6 +8,7 @@ import { t } from '@/i18n';
 import { presetBackgrounds } from '@/constants/backgrounds';
 import { Background } from '@/types';
 import { colors } from '@/constants/theme';
+import { pickImage } from '@/utils/media';
 
 export function BackgroundPicker() {
   const { background, setBackground } = useEditorStore();
@@ -29,12 +29,9 @@ export function BackgroundPicker() {
   const handleSelect = (bg: Background) => setBackground(bg);
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setBackground({ type: 'image', imageUri: result.assets[0].uri });
+    const asset = await pickImage();
+    if (asset) {
+      setBackground({ type: 'image', imageUri: asset.uri });
     }
   };
 

@@ -4,13 +4,14 @@ import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicato
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
+import { useProjectStore } from '@/stores/useProjectStore';
+import { usePurchaseStore } from '@/stores/usePurchaseStore';
 import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
 import { t } from '@/i18n';
 import { Canvas } from '@/components/editor/Canvas';
@@ -23,6 +24,7 @@ import { StickerPicker } from '@/components/editor/StickerPicker';
 import { ImageCropModal } from '@/components/editor/ImageCropModal';
 import { CanvasPicker } from '@/components/editor/CanvasPicker';
 import { colors } from '@/constants/theme';
+import { pickImage } from '@/utils/media';
 import MobileAds, {
   InterstitialAd,
   AdEventType,
@@ -175,15 +177,23 @@ export default function EditorScreen() {
     selectLayer,
     activeTool,
     setActiveTool,
+    sessionName,
+    setSessionName,
     layers,
     selectedLayerId,
     selectedFrameId,
+    frameScale,
+    framePosition,
     frameScreenRect,
     canvasRef,
     reset,
     templateId,
+    background,
     canvasPresetId,
   } = useEditorStore();
+  const saveProject = useProjectStore((s) => s.saveProject);
+  const isPro = usePurchaseStore((s) => s.isPro);
+  const projectId = id ?? Date.now().toString();
 
   const [canvasAreaH, setCanvasAreaH] = useState(0);
 
@@ -201,6 +211,8 @@ export default function EditorScreen() {
 
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const [projectNameInput, setProjectNameInput] = useState('');
   const [busy, setBusy] = useState(false);
 
   const [cropPending, setCropPending] = useState<{
@@ -217,6 +229,15 @@ export default function EditorScreen() {
   const RETRY_DELAY_MS = 4000;
 
   useEffect(() => {
+    adLoadedRef.current = false;
+    pendingAlertRef.current = null;
+    interstitialRef.current = null;
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+
+    if (isPro) {
+      return;
+    }
+
     const instance = InterstitialAd.createForAdRequest(AD_UNIT_ID, {
       requestNonPersonalizedAdsOnly: true,
     });
@@ -245,13 +266,17 @@ export default function EditorScreen() {
 
     MobileAds().initialize().then(() => {
       instance.load();
+    }).catch(() => {
+      adLoadedRef.current = false;
     });
 
     return () => {
       unsubLoad(); unsubError(); unsubClose();
+      adLoadedRef.current = false;
+      interstitialRef.current = null;
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
-  }, []);
+  }, [isPro]);
 
   useEffect(() => {
     return () => reset();
@@ -260,6 +285,10 @@ export default function EditorScreen() {
   // ─── Ad helper ─────────────────────────────────────────────────────────────
 
   const showAdThenAlert = (title: string, msg: string) => {
+    if (isPro) {
+      Alert.alert(title, msg);
+      return;
+    }
     if (adLoadedRef.current && interstitialRef.current) {
       pendingAlertRef.current = { title, msg };
       interstitialRef.current.show();
@@ -347,6 +376,63 @@ export default function EditorScreen() {
     ]);
   };
 
+  const openProjectSave = () => {
+    if (!isPro) {
+      Alert.alert(t('editor.proRequiredTitle'), t('editor.proRequiredBody'), [
+        { text: t('editor.proRequiredCancel'), style: 'cancel' },
+        { text: t('editor.proRequiredSettings'), onPress: () => router.push('/settings') },
+      ]);
+      return;
+    }
+
+    setProjectNameInput(sessionName);
+    setSaveModalVisible(true);
+  };
+
+  const buildProjectThumbnail = async (): Promise<string | undefined> => {
+    if (!canvasRef?.current) return undefined;
+
+    const snapshot = await canvasRef.current.makeImageSnapshotAsync();
+    if (!snapshot) return undefined;
+
+    const thumbnailFile = new File(Paths.cache, `project_thumb_${projectId}.png`);
+    thumbnailFile.write(snapshot.encodeToBase64(ImageFormat.PNG, 100), { encoding: 'base64' });
+    return thumbnailFile.uri;
+  };
+
+  const handleProjectSave = async () => {
+    const trimmedName = projectNameInput.trim();
+    if (!trimmedName) {
+      Alert.alert(t('editor.errTitle'), t('editor.projectNameRequired'));
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const thumbnailUri = await buildProjectThumbnail();
+      await saveProject({
+        id: projectId,
+        sessionName: trimmedName,
+        templateId,
+        layers,
+        selectedFrameId,
+        frameScale,
+        framePosition,
+        background,
+        canvasPresetId,
+        thumbnailUri,
+      });
+      setSessionName(trimmedName);
+      setSaveModalVisible(false);
+      Alert.alert(t('editor.doneTitle'), t('editor.projectSaved'));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert(t('editor.errTitle'), `${t('editor.projectSaveFailed')}\n${msg}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ─── Text ──────────────────────────────────────────────────────────────────
 
   const openTextModal = () => {
@@ -367,15 +453,37 @@ export default function EditorScreen() {
 
   // ─── Media pick ────────────────────────────────────────────────────────────
 
+  const freeTemplateImageOffset = (index: number) => {
+    const offsets = [
+      { x: 0, y: 0 },
+      { x: 28, y: 28 },
+      { x: -28, y: 28 },
+      { x: 28, y: -28 },
+      { x: -28, y: -28 },
+    ];
+    return offsets[index % offsets.length];
+  };
+
   const pickImageForSlot = async (slot: 0 | 1) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
+    try {
+      const asset = await pickImage();
+      if (!asset) return;
+
       if (frameEnabled) {
         setCropPending({ uri: asset.uri, width: asset.width, height: asset.height, frameSlot: slot });
       } else {
-        addLayer(createDefaultLayer('image', asset.uri, { width: asset.width, height: asset.height }));
+        const layer = createDefaultLayer('image', asset.uri, { width: asset.width, height: asset.height });
+        if (templateId === 'free') {
+          const imageCount = layers.filter((existingLayer) => existingLayer.type === 'image').length;
+          const offset = freeTemplateImageOffset(imageCount);
+          addLayer({ ...layer, position: offset });
+        } else {
+          addLayer(layer);
+        }
       }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert(t('editor.errTitle'), `画像の読み込みに失敗しました\n${msg}`);
     }
   };
 
@@ -415,16 +523,28 @@ export default function EditorScreen() {
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+      <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-200">
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleSaveOptions} disabled={busy} hitSlop={8}>
-          {busy
-            ? <ActivityIndicator size="small" color={colors.primary} />
-            : <Ionicons name="arrow-up-circle-outline" size={26} color={colors.primary} />
-          }
-        </TouchableOpacity>
+        <Text className="flex-1 text-center text-base font-semibold text-gray-900 px-4" numberOfLines={1}>
+          {sessionName}
+        </Text>
+        <View className="flex-row items-center gap-4">
+          <TouchableOpacity onPress={openProjectSave} disabled={busy} hitSlop={8}>
+            <Ionicons
+              name={isPro ? 'save-outline' : 'lock-closed-outline'}
+              size={24}
+              color={isPro ? colors.textSecondary : '#d97706'}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSaveOptions} disabled={busy} hitSlop={8}>
+            {busy
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Ionicons name="arrow-up-circle-outline" size={26} color={colors.primary} />
+            }
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Canvas area */}
@@ -490,6 +610,44 @@ export default function EditorScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={saveModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View className="flex-1 justify-end bg-black/40">
+            <View className="bg-white rounded-t-2xl px-5 pt-5 pb-10">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-lg font-bold text-gray-900">{t('editor.projectSaveTitle')}</Text>
+                <TouchableOpacity onPress={() => setSaveModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-sm text-gray-500 mb-3">{t('editor.projectSaveBody')}</Text>
+              <TextInput
+                value={projectNameInput}
+                onChangeText={setProjectNameInput}
+                placeholder={t('editor.projectNamePlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                className="bg-gray-100 rounded-xl px-4 py-3 text-base text-gray-900 mb-4"
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleProjectSave}
+              />
+              <TouchableOpacity
+                onPress={handleProjectSave}
+                disabled={busy}
+                className="bg-primary rounded-xl py-3 items-center"
+                style={{ opacity: busy ? 0.7 : 1 }}
+              >
+                {busy ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="text-white font-semibold">{t('editor.projectSaveConfirm')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 

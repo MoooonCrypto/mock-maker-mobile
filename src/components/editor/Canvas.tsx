@@ -575,7 +575,7 @@ function StickerLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dr
       <Group transform={dragTransform}>
         <Image image={image} x={drawX} y={drawY} width={drawW} height={drawH} fit="cover" />
         {isSelected && (
-          <Rect x={drawX} y={drawY} width={drawW} height={drawH} color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
+          <Rect x={drawX} y={drawY} width={drawW} height={drawH} color={SELECTION_COLOR} style="stroke" strokeWidth={2} />
         )}
       </Group>
     </Group>
@@ -761,7 +761,7 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
     <Group opacity={layer.opacity} origin={pivotOrigin} transform={pinchTransform}>
       <Group transform={dragTransform}>
         {isSelected && (
-          <Rect x={selX} y={selY} width={selW} height={selH} color={SELECTION_COLOR} style="stroke" strokeWidth={1.5} />
+          <Rect x={selX} y={selY} width={selW} height={selH} color={SELECTION_COLOR} style="stroke" strokeWidth={2} />
         )}
         {lines.map((line, i) => {
           const lw = linePxWidth(line, fontSize);

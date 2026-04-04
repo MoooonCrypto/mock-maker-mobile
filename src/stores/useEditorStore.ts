@@ -12,21 +12,32 @@ export type FrameId = 'iphone' | 'iphone-se' | 'app-icon' | 'none';
 
 export type FrameScreenType = 'transparent' | 'opaque' | null;
 
-interface EditorState {
+export interface PersistedEditorState {
   templateId: TemplateId;
   sessionName: string;
   layers: Layer[];
-  selectedLayerId: string | null;
   selectedFrameId: FrameId;
   frameScale: number;
   framePosition: { x: number; y: number };
+  background: Background;
+  canvasPresetId: CanvasPresetId;
+}
+
+interface EditorState {
+  templateId: PersistedEditorState['templateId'];
+  sessionName: PersistedEditorState['sessionName'];
+  layers: PersistedEditorState['layers'];
+  selectedLayerId: string | null;
+  selectedFrameId: PersistedEditorState['selectedFrameId'];
+  frameScale: PersistedEditorState['frameScale'];
+  framePosition: PersistedEditorState['framePosition'];
   frameScreenRect: ScreenRect | null;
   frameScreenRect2: ScreenRect | null;
   frameScreenType: FrameScreenType;
-  background: Background;
+  background: PersistedEditorState['background'];
   activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame' | 'sticker';
   canvasRef: RefObject<CanvasRef | null> | null;
-  canvasPresetId: CanvasPresetId;
+  canvasPresetId: PersistedEditorState['canvasPresetId'];
 
   setTemplateId: (id: TemplateId) => void;
   setSessionName: (name: string) => void;
@@ -45,6 +56,7 @@ interface EditorState {
   addStickerLayer: (key: string, size: { width: number; height: number }) => void;
   setCanvasRef: (ref: RefObject<CanvasRef | null>) => void;
   setCanvasPresetId: (id: CanvasPresetId) => void;
+  hydrateProject: (project: PersistedEditorState) => void;
   reset: () => void;
 }
 
@@ -166,6 +178,22 @@ export const useEditorStore = create<EditorState>((set) => ({
     frameScreenRect2: null,
     frameScreenType: null,
   })),
+  hydrateProject: (project) =>
+    set({
+      templateId: project.templateId,
+      sessionName: project.sessionName,
+      layers: project.layers,
+      selectedLayerId: null,
+      selectedFrameId: project.selectedFrameId,
+      frameScale: project.frameScale,
+      framePosition: project.framePosition,
+      frameScreenRect: null,
+      frameScreenRect2: null,
+      frameScreenType: null,
+      background: project.background,
+      activeTool: 'select',
+      canvasPresetId: project.canvasPresetId,
+    }),
   reset: () =>
     set({
       templateId: 'single',
