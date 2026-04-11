@@ -100,7 +100,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
 
     try {
       if (__DEV__) {
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
       }
 
       if (!purchasesConfigured) {
@@ -155,9 +155,18 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     set({ isPurchasing: true });
     try {
       const result = await Purchases.purchasePackage(selectedPackage);
-      set({ isPro: isEntitlementActive(result.customerInfo) });
+      const purchaseActivatedPro = isEntitlementActive(result.customerInfo);
+      set({ isPro: purchaseActivatedPro });
       await get().refresh();
-      return { ok: true };
+
+      if (purchaseActivatedPro || get().isPro) {
+        return { ok: true };
+      }
+
+      return {
+        ok: false,
+        message: 'Purchase completed, but the Pro entitlement was not activated. Please try restoring purchases.',
+      };
     } catch (error) {
       return parseError(error);
     } finally {
