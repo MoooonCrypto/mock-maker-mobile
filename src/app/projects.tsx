@@ -94,68 +94,86 @@ export default function ProjectsScreen() {
   };
 
   const renderProject = ({ item }: { item: ProjectMeta }) => (
-    <View className="bg-white rounded-2xl px-4 py-4 mb-3">
-      <View className="flex-row">
-        <View
-          style={{
-            width: 88,
-            height: 88,
-            borderRadius: 18,
-            backgroundColor: '#e5e7eb',
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {item.thumbnailUri ? (
-            <Image source={{ uri: item.thumbnailUri }} style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <Ionicons name="image-outline" size={28} color="#94a3b8" />
-          )}
-        </View>
+    <View
+      className="bg-white rounded-3xl px-4 py-4 mb-4"
+      style={{
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.07,
+        shadowRadius: 18,
+        elevation: 3,
+      }}
+    >
+      <TouchableOpacity activeOpacity={0.86} onPress={() => handleOpen(item.id)} disabled={busyId === item.id}>
+        <View className="flex-row">
+          <View
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: 24,
+              backgroundColor: '#e5e7eb',
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {item.thumbnailUri ? (
+              <Image source={{ uri: item.thumbnailUri }} style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <Ionicons name="image-outline" size={30} color="#94a3b8" />
+            )}
+          </View>
 
-        <View className="flex-1 ml-4">
-          <Text className="text-base font-semibold text-gray-900">{item.name}</Text>
-          <Text className="text-sm text-gray-500 mt-1">
-            {t(`templates.${templateKey(item.templateId)}.label`)}
-          </Text>
-          <Text className="text-xs text-gray-400 mt-2">
-            {t('projects.updatedAt', { date: formatUpdatedAt(item.updatedAt) })}
-          </Text>
+          <View className="flex-1 ml-4">
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-base font-bold text-gray-900" numberOfLines={2}>
+                  {item.name}
+                </Text>
+                <View className="self-start rounded-full bg-blue-50 px-2.5 py-1 mt-2">
+                  <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                    {t(`templates.${templateKey(item.templateId)}.label`)}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleDelete(item.id)}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{ backgroundColor: '#fff1f2' }}
+                disabled={busyId === item.id}
+                hitSlop={8}
+              >
+                <Ionicons name="trash-outline" size={18} color="#e11d48" />
+              </TouchableOpacity>
+            </View>
 
-          <View className="flex-row mt-4 gap-3">
-            <TouchableOpacity
-              onPress={() => handleOpen(item.id)}
-              className="flex-1 rounded-xl bg-primary py-3 items-center"
-              disabled={busyId === item.id}
-            >
-              {busyId === item.id ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text className="text-white font-semibold">{t('projects.openButton')}</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDelete(item.id)}
-              className="rounded-xl border border-red-200 px-4 py-3 items-center justify-center"
-              disabled={busyId === item.id}
-            >
-              <Text className="text-red-500 font-semibold">{t('projects.deleteConfirm')}</Text>
-            </TouchableOpacity>
+            <Text className="text-xs text-gray-400 mt-3">
+              {t('projects.updatedAt', { date: formatUpdatedAt(item.updatedAt) })}
+            </Text>
+
+            <View className="flex-row items-center mt-4">
+              <View className="flex-1 rounded-2xl bg-primary py-3 items-center justify-center">
+                {busyId === item.id ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="text-white font-bold">{t('projects.openButton')}</Text>
+                )}
+              </View>
+            </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-        <View className="w-10" />
-        <Text className="text-lg font-bold text-gray-900">{t('projects.title')}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="close" size={24} color={colors.textSecondary} />
+        <TouchableOpacity onPress={() => router.back()} hitSlop={8} className="w-10">
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
+        <Text className="text-lg font-bold text-gray-900">{t('projects.title')}</Text>
+        <View className="w-10" />
       </View>
 
       <FlatList
@@ -163,11 +181,27 @@ export default function ProjectsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 28, flexGrow: projects.length === 0 ? 1 : undefined }}
         renderItem={renderProject}
+        ListHeaderComponent={
+          projects.length > 0 ? (
+            <Text className="text-sm text-gray-500 mb-4 leading-5">{t('projects.libraryIntro')}</Text>
+          ) : null
+        }
         ListEmptyComponent={
-          <View className="flex-1 items-center justify-center px-8">
-            <Ionicons name="folder-open-outline" size={42} color="#94a3b8" />
-            <Text className="text-lg font-semibold text-gray-900 mt-4">{t('projects.emptyTitle')}</Text>
-            <Text className="text-sm text-gray-500 text-center mt-2">{t('projects.emptyBody')}</Text>
+          <View className="flex-1 items-center justify-center px-6">
+            <View
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: 26,
+                backgroundColor: '#eff6ff',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="folder-open-outline" size={36} color={colors.primary} />
+            </View>
+            <Text className="text-xl font-bold text-gray-900 mt-5">{t('projects.emptyTitle')}</Text>
+            <Text className="text-sm text-gray-500 text-center mt-2 leading-5">{t('projects.emptyBody')}</Text>
           </View>
         }
       />

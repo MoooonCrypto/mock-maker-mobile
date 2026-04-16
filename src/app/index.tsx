@@ -8,6 +8,8 @@ import type { TemplateId } from '@/constants/templates';
 import { TEMPLATES } from '@/constants/templates';
 import { colors } from '@/constants/theme';
 import { t, templateKey } from '@/i18n';
+import { PRO_FALLBACK_PRICE_LABEL } from '@/config/purchases';
+import { ProCard } from '@/components/ProCard';
 
 function SinglePreview() {
   return (
@@ -115,9 +117,9 @@ export default function HomeScreen() {
               className="w-11 h-11 rounded-2xl items-center justify-center bg-white border border-gray-200"
             >
               <Ionicons
-                name={isPro ? 'folder-open-outline' : 'lock-closed-outline'}
+                name={isPro ? 'folder-open-outline' : 'folder-outline'}
                 size={20}
-                color={isPro ? colors.primary : colors.textSecondary}
+                color={isPro ? colors.primary : '#d97706'}
               />
             </TouchableOpacity>
             <TouchableOpacity
@@ -129,37 +131,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={() => router.push('/settings')}
-          className="mt-4 rounded-2xl px-4 py-4"
-          style={{ backgroundColor: isPro ? '#dcfce7' : '#eff6ff' }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text
-                className="text-xs font-semibold"
-                style={{ color: isPro ? colors.success : colors.primary }}
-              >
-                {isPro ? t('home.proActiveBadge') : t('home.proBadge')}
-              </Text>
-              <Text className="text-base font-semibold text-gray-900 mt-1">
-                {isPro ? t('home.proActiveTitle') : t('home.proTitle')}
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                {isPro ? t('home.proActiveBody') : t('home.proBody')}
-              </Text>
-            </View>
-            <Ionicons
-              name={isPro ? 'checkmark-circle-outline' : 'diamond-outline'}
-              size={26}
-              color={isPro ? colors.success : colors.primary}
-            />
-          </View>
-        </TouchableOpacity>
       </View>
 
       <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 24 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {TEMPLATES.map((tpl) => {
             const Preview = PREVIEWS[tpl.id];
             return (
@@ -196,6 +171,16 @@ export default function HomeScreen() {
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        <View style={{ marginTop: 18, marginBottom: 28 }}>
+          <ProCard
+            isPro={isPro}
+            priceLabel={PRO_FALLBACK_PRICE_LABEL}
+            primaryLabel={isPro ? t('home.openProjectsButton') : t('settings.proBuyButton')}
+            onPrimaryPress={() => router.push(isPro ? '/projects' : '/settings')}
+            showRestore={false}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>

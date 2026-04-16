@@ -9,7 +9,7 @@ type PurchasesExtra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as PurchasesExtra;
 
-export const PRO_ENTITLEMENT_ID = extra.revenueCatEntitlementId ?? 'pro';
+export const PRO_ENTITLEMENT_ID = extra.revenueCatEntitlementId ?? 'Pro';
 export const PRO_FALLBACK_PRICE_LABEL = '500円';
 
 export function getRevenueCatApiKey(): string | null {

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -7,6 +7,14 @@ import { usePurchaseStore } from '@/stores/usePurchaseStore';
 import { colors } from '@/constants/theme';
 import { PRO_FALLBACK_PRICE_LABEL } from '@/config/purchases';
 import { t } from '@/i18n';
+import { ProCard } from '@/components/ProCard';
+
+const PRIVACY_POLICY_URL = 'https://mooooncrypto.github.io/mockmaker-privacy/';
+const SUPPORT_EMAIL = 'mokotech7@gmail.com';
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return <View className="mx-5 mt-4 bg-white rounded-2xl p-4">{children}</View>;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -18,12 +26,10 @@ export default function SettingsScreen() {
     isPurchasing,
     isRestoring,
     isPro,
-    currentPackage,
     purchasePro,
     restorePurchases,
   } = usePurchaseStore();
 
-  const priceLabel = currentPackage?.product.priceString ?? PRO_FALLBACK_PRICE_LABEL;
   const purchaseBusy = isLoading || isPurchasing || isRestoring || !isReady;
 
   const handlePurchase = async () => {
@@ -46,6 +52,28 @@ export default function SettingsScreen() {
     Alert.alert(t('settings.proRestoreErrorTitle'), result.message ?? t('settings.proRestoreErrorBody'));
   };
 
+  const openPrivacyPolicy = async () => {
+    try {
+      await Linking.openURL(PRIVACY_POLICY_URL);
+    } catch {
+      Alert.alert(t('settings.linkOpenErrorTitle'), PRIVACY_POLICY_URL);
+    }
+  };
+
+  const openSupportEmail = async () => {
+    const url = `mailto:${SUPPORT_EMAIL}?subject=MockMaker%20Support`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch {
+      // Fall through to showing the address.
+    }
+    Alert.alert(t('settings.supportEmailTitle'), SUPPORT_EMAIL);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
@@ -56,152 +84,149 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View className="mx-5 mt-6 bg-white rounded-xl p-4">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-sm font-semibold text-amber-600 mb-2">{t('settings.proBadge')}</Text>
-            <Text className="text-xl font-bold text-gray-900">{t('settings.proTitle')}</Text>
-            <Text className="text-sm text-gray-500 mt-2">{t('settings.proBody')}</Text>
-            <Text className="text-base font-semibold text-gray-900 mt-4">
-              {t('settings.proPrice', { price: priceLabel })}
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 16,
-              backgroundColor: isPro ? '#dcfce7' : '#fef3c7',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons
-              name={isPro ? 'shield-checkmark-outline' : 'diamond-outline'}
-              size={24}
-              color={isPro ? colors.success : '#d97706'}
-            />
-          </View>
-        </View>
-
-        <View className="mt-4">
-          <Text className="text-sm text-gray-700">{t('settings.proFeatureNoAds')}</Text>
-          <Text className="text-sm text-gray-700 mt-1">{t('settings.proFeatureProjects')}</Text>
-          <Text className="text-xs text-gray-400 mt-3">{t('settings.proLocalOnly')}</Text>
-        </View>
-
-        {!isConfigured && (
-          <View className="mt-4 rounded-xl bg-red-50 px-3 py-3">
-            <Text className="text-sm text-red-700">{t('settings.proUnavailableBody')}</Text>
-          </View>
-        )}
-
-        <View className="mt-5 flex-row gap-3">
-          {isPro ? (
-            <View className="flex-1 rounded-xl bg-green-50 px-4 py-4">
-              <Text className="text-base font-semibold text-green-700">{t('settings.proActiveTitle')}</Text>
-              <Text className="text-sm text-green-700 mt-1">{t('settings.proActiveBody')}</Text>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+        <View className="mx-5 mt-6">
+          <ProCard
+            isPro={isPro}
+            priceLabel={PRO_FALLBACK_PRICE_LABEL}
+            primaryLabel={t('settings.proBuyButton')}
+            restoreLabel={t('settings.proRestoreButton')}
+            onPrimaryPress={handlePurchase}
+            onRestorePress={handleRestore}
+            loading={purchaseBusy}
+            disabled={!isConfigured}
+          />
+          {!isConfigured && (
+            <View className="mt-3 rounded-xl bg-red-50 px-3 py-3">
+              <Text className="text-sm text-red-700">{t('settings.proUnavailableBody')}</Text>
             </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handlePurchase}
-              disabled={!isConfigured || purchaseBusy}
-              className="flex-1 rounded-xl items-center justify-center py-4"
-              style={{
-                backgroundColor: !isConfigured || purchaseBusy ? '#93c5fd' : colors.primary,
-              }}
-            >
-              {purchaseBusy ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text className="text-white font-semibold">{t('settings.proBuyButton')}</Text>
-              )}
-            </TouchableOpacity>
           )}
+        </View>
 
+        <SectionCard>
+          <Text className="text-sm font-semibold text-gray-500 mb-3">{t('settings.projectSectionTitle')}</Text>
           <TouchableOpacity
-            onPress={handleRestore}
-            disabled={!isConfigured || purchaseBusy}
-            className="rounded-xl border border-gray-200 items-center justify-center px-4 py-4"
-            style={{ minWidth: 112, opacity: !isConfigured || purchaseBusy ? 0.5 : 1 }}
+            onPress={() => router.push('/projects')}
+            disabled={!isPro}
+            className="rounded-2xl border border-gray-200 px-4 py-4 flex-row items-center justify-between"
+            style={{ opacity: isPro ? 1 : 0.55 }}
           >
-            <Text className="text-sm font-semibold text-gray-700">{t('settings.proRestoreButton')}</Text>
+            <View className="flex-row items-center flex-1">
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 14,
+                  backgroundColor: isPro ? '#eff6ff' : '#f3f4f6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons
+                  name={isPro ? 'folder-open-outline' : 'folder-outline'}
+                  size={20}
+                  color={isPro ? colors.primary : '#d97706'}
+                />
+              </View>
+              <View className="flex-1 ml-3">
+                <Text className="text-base font-semibold text-gray-900">{t('settings.projectLibraryTitle')}</Text>
+                <Text className="text-sm text-gray-500 mt-1">{t('settings.projectLibraryBody')}</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-        </View>
+          <Text className="text-xs text-gray-400 mt-3 leading-4">{t('settings.proLocalOnly')}</Text>
+        </SectionCard>
 
-        <TouchableOpacity
-          onPress={() => router.push('/projects')}
-          disabled={!isPro}
-          className="mt-4 rounded-xl border border-gray-200 px-4 py-4 flex-row items-center justify-between"
-          style={{ opacity: isPro ? 1 : 0.45 }}
-        >
-          <View>
-            <Text className="text-base font-semibold text-gray-900">{t('settings.projectLibraryTitle')}</Text>
-            <Text className="text-sm text-gray-500 mt-1">{t('settings.projectLibraryBody')}</Text>
-          </View>
-          <Ionicons name="folder-open-outline" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+        <SectionCard>
+          <Text className="text-sm font-semibold text-gray-500 mb-3">
+            {t('settings.exportSectionTitle')}
+          </Text>
 
-      <View className="mx-5 mt-4 bg-white rounded-xl p-4">
-        <Text className="text-sm font-semibold text-gray-500 mb-3">
-          {t('settings.exportSectionTitle')}
-        </Text>
-
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-base text-gray-900">{t('settings.exportFormat')}</Text>
-          <View className="flex-row bg-gray-100 rounded-lg overflow-hidden">
-            {(['png', 'jpg'] as const).map((fmt) => (
-              <TouchableOpacity
-                key={fmt}
-                onPress={() => setDefaultExport({ format: fmt })}
-                className={`px-4 py-2 ${
-                  defaultExport.format === fmt ? 'bg-primary' : ''
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    defaultExport.format === fmt ? 'text-white' : 'text-gray-600'
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-base text-gray-900">{t('settings.exportFormat')}</Text>
+            <View className="flex-row bg-gray-100 rounded-xl overflow-hidden">
+              {(['png', 'jpg'] as const).map((fmt) => (
+                <TouchableOpacity
+                  key={fmt}
+                  onPress={() => setDefaultExport({ format: fmt })}
+                  className={`px-4 py-2 ${
+                    defaultExport.format === fmt ? 'bg-primary' : ''
                   }`}
                 >
-                  {fmt.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    className={`text-sm font-medium ${
+                      defaultExport.format === fmt ? 'text-white' : 'text-gray-600'
+                    }`}
+                  >
+                    {fmt.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
 
-        <View className="flex-row items-center justify-between">
-          <Text className="text-base text-gray-900">{t('settings.exportQuality')}</Text>
-          <View className="flex-row bg-gray-100 rounded-lg overflow-hidden">
-            {([
-              { key: 'standard' as const, label: t('settings.exportQualityStandard') },
-              { key: 'high' as const, label: t('settings.exportQualityHigh') },
-            ]).map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => setDefaultExport({ quality: key })}
-                className={`px-4 py-2 ${
-                  defaultExport.quality === key ? 'bg-primary' : ''
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    defaultExport.quality === key ? 'text-white' : 'text-gray-600'
+          <View className="flex-row items-center justify-between">
+            <Text className="text-base text-gray-900">{t('settings.exportQuality')}</Text>
+            <View className="flex-row bg-gray-100 rounded-xl overflow-hidden">
+              {([
+                { key: 'standard' as const, label: t('settings.exportQualityStandard') },
+                { key: 'high' as const, label: t('settings.exportQualityHigh') },
+              ]).map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setDefaultExport({ quality: key })}
+                  className={`px-4 py-2 ${
+                    defaultExport.quality === key ? 'bg-primary' : ''
                   }`}
                 >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    className={`text-sm font-medium ${
+                      defaultExport.quality === key ? 'text-white' : 'text-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-      </View>
+        </SectionCard>
 
-      <View className="mx-5 mt-4 bg-white rounded-xl p-4">
-        <Text className="text-sm font-semibold text-gray-500 mb-2">{t('settings.appInfoTitle')}</Text>
-        <Text className="text-base text-gray-900">MockMaker v1.0.0</Text>
-      </View>
+        <SectionCard>
+          <Text className="text-sm font-semibold text-gray-500 mb-2">{t('settings.appInfoTitle')}</Text>
+          <Text className="text-base font-semibold text-gray-900">MockMaker v1.0.0</Text>
+          <Text className="text-xs text-gray-400 mt-2 leading-4">{t('settings.reviewSafeNote')}</Text>
+        </SectionCard>
+
+        <SectionCard>
+          <Text className="text-sm font-semibold text-gray-500 mb-3">{t('settings.supportSectionTitle')}</Text>
+          <TouchableOpacity
+            onPress={openPrivacyPolicy}
+            className="flex-row items-center justify-between py-3"
+          >
+            <View className="flex-row items-center flex-1">
+              <Ionicons name="shield-checkmark-outline" size={21} color={colors.textSecondary} />
+              <Text className="text-base text-gray-900 ml-3">{t('settings.privacyPolicy')}</Text>
+            </View>
+            <Ionicons name="open-outline" size={19} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <View className="h-px bg-gray-100" />
+          <TouchableOpacity
+            onPress={openSupportEmail}
+            className="flex-row items-center justify-between py-3"
+          >
+            <View className="flex-row items-center flex-1">
+              <Ionicons name="mail-outline" size={21} color={colors.textSecondary} />
+              <View className="flex-1 ml-3">
+                <Text className="text-base text-gray-900">{t('settings.contactSupport')}</Text>
+                <Text className="text-xs text-gray-400 mt-1">{SUPPORT_EMAIL}</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={19} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </SectionCard>
+      </ScrollView>
     </SafeAreaView>
   );
 }

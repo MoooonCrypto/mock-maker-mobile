@@ -15,6 +15,7 @@
       }
     },
     "preview": {
+      "environment": "production",
       "distribution": "store",
       "autoIncrement": true,
       "ios": {
@@ -22,6 +23,7 @@
       }
     },
     "production": {
+      "environment": "production",
       "autoIncrement": true
     }
   },

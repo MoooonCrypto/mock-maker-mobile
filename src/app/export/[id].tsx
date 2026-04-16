@@ -10,12 +10,15 @@ import { ImageFormat } from '@shopify/react-native-skia';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { colors } from '@/constants/theme';
+import { getPreset } from '@/constants/canvasPresets';
 import { ExportSettings } from '@/types';
+import { resizeSkiaImage } from '@/services/compositing';
 
 export default function ExportScreen() {
   const router = useRouter();
   const defaultExport = useSettingsStore((s) => s.defaultExport);
   const canvasRef = useEditorStore((s) => s.canvasRef);
+  const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
 
   const [format,  setFormat]  = useState<ExportSettings['format']>(defaultExport.format);
   const [quality, setQuality] = useState<ExportSettings['quality']>(defaultExport.quality);
@@ -40,9 +43,11 @@ export default function ExportScreen() {
     try {
       const image = await canvasRef.current.makeImageSnapshotAsync();
       if (!image) return null;
+      const preset = getPreset(canvasPresetId);
+      const resizedImage = resizeSkiaImage(image, preset.exportW, preset.exportH);
       const encoded = format === 'png'
-        ? image.encodeToBase64(ImageFormat.PNG,  qualityValue)
-        : image.encodeToBase64(ImageFormat.JPEG, qualityValue);
+        ? resizedImage.encodeToBase64(ImageFormat.PNG,  qualityValue)
+        : resizedImage.encodeToBase64(ImageFormat.JPEG, qualityValue);
       const ext  = format === 'png' ? 'png' : 'jpg';
       const file = new File(Paths.cache, `mockup_${Date.now()}.${ext}`);
       file.write(encoded, { encoding: 'base64' });

@@ -19,7 +19,7 @@ export function isStoreCanvasPreset(id: CanvasPresetId): boolean {
 }
 
 export const CANVAS_PRESETS: CanvasPreset[] = [
-  { id: 'store-67', label: '6.7インチ (1290×2796)', group: 'ストア申請用', exportW: 1290, exportH: 2796 },
+  { id: 'store-67', label: '6.5/6.7インチ (1284×2778)', group: 'ストア申請用', exportW: 1284, exportH: 2778 },
   { id: 'store-69', label: '6.9インチ (1320×2868)', group: 'ストア申請用', exportW: 1320, exportH: 2868 },
   { id: 'store-65', label: '6.5インチ (1242×2688)', group: 'ストア申請用', exportW: 1242, exportH: 2688 },
   { id: 'square',   label: '正方形 1:1 (1080×1080)', group: '汎用サイズ', exportW: 1080, exportH: 1080 },

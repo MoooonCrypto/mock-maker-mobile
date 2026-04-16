@@ -25,6 +25,9 @@ import { ImageCropModal } from '@/components/editor/ImageCropModal';
 import { CanvasPicker } from '@/components/editor/CanvasPicker';
 import { colors } from '@/constants/theme';
 import { pickImage } from '@/utils/media';
+import { PRO_FALLBACK_PRICE_LABEL } from '@/config/purchases';
+import { ProCard } from '@/components/ProCard';
+import { resizeSkiaImage } from '@/services/compositing';
 import MobileAds, {
   InterstitialAd,
   AdEventType,
@@ -212,6 +215,7 @@ export default function EditorScreen() {
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const [proPromptVisible, setProPromptVisible] = useState(false);
   const [projectNameInput, setProjectNameInput] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -329,7 +333,8 @@ export default function EditorScreen() {
         for (let i = 0; i < bounds.length; i++) {
           const snap = await canvasRef.current.makeImageSnapshotAsync(bounds[i]);
           if (!snap) throw new Error(`${t('editor.errSnapshotFailed')} (${i + 1})`);
-          const encoded = snap.encodeToBase64(ImageFormat.PNG, 100);
+          const resizedSnap = resizeSkiaImage(snap, _preset.exportW, _preset.exportH);
+          const encoded = resizedSnap.encodeToBase64(ImageFormat.PNG, 100);
           const file = new File(Paths.cache, `mockup_${ts}_${i + 1}.png`);
           file.write(encoded, { encoding: 'base64' });
           if (target === 'photos') {
@@ -339,14 +344,18 @@ export default function EditorScreen() {
           }
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        if (target === 'photos') showAdThenAlert(t('editor.doneTitle'), t('editor.exportDone2'));
+        showAdThenAlert(
+          t('editor.doneTitle'),
+          target === 'photos' ? t('editor.exportDone2') : t('editor.exportDoneShared')
+        );
         return;
       }
 
       const snap = await canvasRef.current.makeImageSnapshotAsync();
       if (!snap) throw new Error(t('editor.errSnapshotFailed'));
 
-      const encoded = snap.encodeToBase64(ImageFormat.PNG, 100);
+      const resizedSnap = resizeSkiaImage(snap, _preset.exportW, _preset.exportH);
+      const encoded = resizedSnap.encodeToBase64(ImageFormat.PNG, 100);
       const file    = new File(Paths.cache, `mockup_${Date.now()}.png`);
       file.write(encoded, { encoding: 'base64' });
 
@@ -378,10 +387,7 @@ export default function EditorScreen() {
 
   const openProjectSave = () => {
     if (!isPro) {
-      Alert.alert(t('editor.proRequiredTitle'), t('editor.proRequiredBody'), [
-        { text: t('editor.proRequiredCancel'), style: 'cancel' },
-        { text: t('editor.proRequiredSettings'), onPress: () => router.push('/settings') },
-      ]);
+      setProPromptVisible(true);
       return;
     }
 
@@ -533,7 +539,7 @@ export default function EditorScreen() {
         <View className="flex-row items-center gap-4">
           <TouchableOpacity onPress={openProjectSave} disabled={busy} hitSlop={8}>
             <Ionicons
-              name={isPro ? 'save-outline' : 'lock-closed-outline'}
+              name={isPro ? 'folder-open-outline' : 'folder-outline'}
               size={24}
               color={isPro ? colors.textSecondary : '#d97706'}
             />
@@ -541,7 +547,7 @@ export default function EditorScreen() {
           <TouchableOpacity onPress={handleSaveOptions} disabled={busy} hitSlop={8}>
             {busy
               ? <ActivityIndicator size="small" color={colors.primary} />
-              : <Ionicons name="arrow-up-circle-outline" size={26} color={colors.primary} />
+              : <Ionicons name="download-outline" size={26} color={colors.primary} />
             }
           </TouchableOpacity>
         </View>
@@ -649,6 +655,36 @@ export default function EditorScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={proPromptVisible} transparent animationType="fade">
+        <View className="flex-1 justify-center px-6" style={{ backgroundColor: 'rgba(15,23,42,0.55)' }}>
+          <View>
+            <TouchableOpacity
+              onPress={() => setProPromptVisible(false)}
+              className="self-end mb-3 w-10 h-10 rounded-full bg-white items-center justify-center"
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <ProCard
+              isPro={isPro}
+              priceLabel={PRO_FALLBACK_PRICE_LABEL}
+              primaryLabel={t('editor.proRequiredSettings')}
+              onPrimaryPress={() => {
+                setProPromptVisible(false);
+                router.push('/settings');
+              }}
+              showRestore={false}
+            />
+            <TouchableOpacity
+              onPress={() => setProPromptVisible(false)}
+              className="mt-3 rounded-2xl py-3 items-center"
+            >
+              <Text className="text-sm font-semibold text-white">{t('editor.proRequiredCancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {cropPending && (
