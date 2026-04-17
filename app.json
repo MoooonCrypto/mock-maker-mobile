@@ -19,7 +19,7 @@
       "backgroundColor": "#2b8cee"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.mockmaker.mobile",
       "infoPlist": {
         "GADDelayAppMeasurementInit": true,
