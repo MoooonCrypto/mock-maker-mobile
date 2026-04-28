@@ -15,10 +15,12 @@ export default function RootLayout() {
   useEffect(() => {
     async function init() {
       try {
-        await Promise.all([loadSettings(), initializePurchases()]);
+        await loadSettings();
       } finally {
         SplashScreen.hideAsync();
       }
+
+      initializePurchases();
     }
     init();
   }, [initializePurchases, loadSettings]);

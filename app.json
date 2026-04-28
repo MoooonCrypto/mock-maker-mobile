@@ -1,13 +1,8 @@
 {
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
-    "ios_app_id": "ca-app-pub-2543814564794464~9655022649",
-    "delay_app_measurement_init": true
-  },
   "expo": {
     "name": "MockMaker",
     "slug": "mock-maker-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2b8cee"
+      "backgroundColor": "#f6f7f8"
     },
     "ios": {
       "supportsTablet": false,

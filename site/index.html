@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MockMaker | モックアップ作成</title>
+  <meta
+    name="description"
+    content="MockMaker は、スクリーンショットを iPhone フレーム付きモックアップにすばやく仕上げる iOS アプリです。"
+  />
+  <style>
+    :root {
+      --bg: #f3f7ff;
+      --panel: rgba(255, 255, 255, 0.84);
+      --ink: #10213d;
+      --muted: #5f7091;
+      --line: rgba(16, 33, 61, 0.1);
+      --brand: #2b8cee;
+      --brand-deep: #1155b3;
+      --accent: #14b8a6;
+      --shadow: 0 24px 60px rgba(24, 52, 99, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", "Hiragino Sans", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(43, 140, 238, 0.22), transparent 28%),
+        radial-gradient(circle at 80% 20%, rgba(20, 184, 166, 0.14), transparent 22%),
+        linear-gradient(180deg, #fbfdff 0%, var(--bg) 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 0 10px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #2b8cee 0%, #14b8a6 100%);
+      box-shadow: 0 10px 24px rgba(43, 140, 238, 0.34);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.88);
+    }
+
+    .brand-mark::before {
+      width: 18px;
+      height: 28px;
+      left: 7px;
+      top: 8px;
+    }
+
+    .brand-mark::after {
+      width: 18px;
+      height: 28px;
+      right: 7px;
+      bottom: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .nav-link {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 28px;
+      align-items: center;
+      padding: 36px 0 64px;
+    }
+
+    .hero-copy {
+      padding: 18px 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(17, 85, 179, 0.12);
+      color: var(--brand-deep);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 18px 0 16px;
+      font-size: clamp(42px, 7vw, 76px);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 640px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.8;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 50px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-weight: 700;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button.primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+      box-shadow: 0 14px 32px rgba(17, 85, 179, 0.24);
+    }
+
+    .button.secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.74);
+      border-color: rgba(16, 33, 61, 0.08);
+    }
+
+    .hero-card {
+      position: relative;
+      padding: 28px;
+      border-radius: 34px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76));
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(43, 140, 238, 0.18), transparent 26%),
+        linear-gradient(180deg, transparent 0%, rgba(16, 33, 61, 0.02) 100%);
+      pointer-events: none;
+    }
+
+    .card-tag {
+      position: relative;
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(20, 184, 166, 0.12);
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .device-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .frame {
+      aspect-ratio: 9 / 18.5;
+      border-radius: 26px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(227, 237, 255, 0.88)),
+        #fff;
+      border: 2px solid rgba(16, 33, 61, 0.12);
+      padding: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .frame-screen {
+      flex: 1;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(32, 65, 122, 0.92), rgba(53, 120, 205, 0.82)),
+        #3166c4;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .frame-screen::before,
+    .frame-screen::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .frame-screen::before {
+      width: 62%;
+      height: 14px;
+      top: 14px;
+      left: 16px;
+    }
+
+    .frame-screen::after {
+      width: 42%;
+      height: 14px;
+      top: 38px;
+      left: 16px;
+    }
+
+    .frame:nth-child(2) .frame-screen {
+      background:
+        linear-gradient(180deg, rgba(23, 67, 126, 0.96), rgba(20, 184, 166, 0.78)),
+        #297dc7;
+      transform: translateY(18px);
+    }
+
+    .frame:nth-child(3) .frame-screen {
+      background:
+        linear-gradient(180deg, rgba(63, 94, 182, 0.88), rgba(17, 85, 179, 0.74)),
+        #4f6eda;
+    }
+
+    .mini-strip {
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(16, 33, 61, 0.07);
+    }
+
+    .section {
+      padding: 0 0 56px;
+    }
+
+    .section-header {
+      max-width: 740px;
+      margin-bottom: 22px;
+    }
+
+    .section-kicker {
+      color: var(--brand-deep);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 10px 0 12px;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.06;
+      letter-spacing: -0.03em;
+    }
+
+    .section-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .feature-grid,
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 24px;
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 28px rgba(16, 33, 61, 0.06);
+    }
+
+    .panel h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .panel p,
+    .panel li {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .panel ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .contact-card {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .support-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .support-item {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.66);
+      border: 1px solid var(--line);
+    }
+
+    .support-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .support-item span {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+      word-break: break-word;
+    }
+
+    footer {
+      padding: 24px 0 42px;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 920px) {
+      .hero,
+      .contact-card,
+      .feature-grid,
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 16px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        width: min(100% - 24px, 1120px);
+      }
+
+      .nav {
+        gap: 14px;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      h1 {
+        font-size: 42px;
+      }
+
+      .hero-card {
+        padding: 22px;
+        border-radius: 28px;
+      }
+
+      .device-grid {
+        gap: 10px;
+      }
+
+      .frame {
+        border-radius: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="MockMaker">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>MockMaker</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#details">Details</a>
+        <a class="nav-link" href="#support">Support</a>
+        <a class="nav-link" href="./privacy.html">Privacy</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow">iPhone mockups made quick</div>
+          <h1>MockMaker</h1>
+          <p class="lead">
+            スクリーンショットを読み込み、テンプレートを選び、iPhone モックアップをすばやく作成。
+            書き出し後はそのまま写真アプリに保存でき、SNS 用のビジュアル作成にも向いています。
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#support">Support</a>
+            <a class="button secondary" href="./privacy.html">Privacy Policy</a>
+          </div>
+        </div>
+
+        <aside class="hero-card" aria-label="Mockup preview">
+          <span class="card-tag">iOS App</span>
+          <div class="device-grid">
+            <div class="frame">
+              <div class="mini-strip"></div>
+              <div class="frame-screen"></div>
+            </div>
+            <div class="frame">
+              <div class="mini-strip"></div>
+              <div class="frame-screen"></div>
+            </div>
+            <div class="frame">
+              <div class="mini-strip"></div>
+              <div class="frame-screen"></div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="section" id="features">
+        <div class="section-header">
+          <div class="section-kicker">Features</div>
+          <h2>スクリーンショットを、そのまま素材にしない。</h2>
+          <p class="section-copy">
+            MockMaker は、画面キャプチャをプレゼンや配信用の見せる画像に仕上げるためのツールです。
+            余計な設定より、すぐ書き出せることを優先しています。
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="panel">
+            <h3>テンプレート選択</h3>
+            <p>シングル、ダブル、トップクロップ、スプリット、アイコン形式、フレームなしなどのレイアウトを用意しています。</p>
+          </article>
+          <article class="panel">
+            <h3>背景と装飾</h3>
+            <p>背景色、テキスト、スタンプ、メディアを組み合わせて、静止画だけで終わらないビジュアルを作れます。</p>
+          </article>
+          <article class="panel">
+            <h3>そのまま保存</h3>
+            <p>作成した画像は写真アプリや共有シートへそのまま書き出せます。作業は端末内完結です。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="details">
+        <div class="section-header">
+          <div class="section-kicker">Details</div>
+          <h2>アプリについて</h2>
+          <p class="section-copy">
+            MockMaker は日本語 UI を中心に設計された iOS アプリです。広告付きの基本利用に加えて、
+            買い切りの Pro で広告非表示とローカル保存の拡張機能を利用できます。
+          </p>
+        </div>
+        <div class="detail-grid">
+          <article class="panel">
+            <h3>動作環境</h3>
+            <ul>
+              <li>iPhone 向け</li>
+              <li>iOS 15.1 以降</li>
+              <li>画像選択と保存に写真ライブラリ権限を利用</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>データの扱い</h3>
+            <ul>
+              <li>モックアップ画像と編集内容は端末内で処理</li>
+              <li>アカウント登録は不要</li>
+              <li>広告配信に Google AdMob を利用</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>購入オプション</h3>
+            <ul>
+              <li>買い切り型の MockMaker Pro</li>
+              <li>広告非表示</li>
+              <li>作業中プロジェクトのローカル保存</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="support">
+        <div class="section-header">
+          <div class="section-kicker">Support</div>
+          <h2>サポートと連絡先</h2>
+          <p class="section-copy">
+            バグ報告、権限まわりの相談、課金や広告の問い合わせは以下から受け付けています。
+          </p>
+        </div>
+        <div class="contact-card">
+          <div class="panel">
+            <h3>お問い合わせ</h3>
+            <p>
+              ご連絡はメールで受け付けています。アプリのバージョン、使用端末、発生した操作内容を添えると切り分けが早くなります。
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="mailto:mokotech7@gmail.com?subject=MockMaker%20Support">Email Support</a>
+              <a class="button secondary" href="./privacy.html">Privacy Policy</a>
+            </div>
+          </div>
+          <div class="support-list">
+            <div class="support-item">
+              <strong>Support Email</strong>
+              <span>mokotech7@gmail.com</span>
+            </div>
+            <div class="support-item">
+              <strong>Developer</strong>
+              <span>MoooonCrypto</span>
+            </div>
+            <div class="support-item">
+              <strong>Bundle ID</strong>
+              <span>com.mockmaker.mobile</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>&copy; 2026 MoooonCrypto</span>
+      <span>MockMaker marketing site for App Store and app-ads.txt verification</span>
+    </footer>
+  </div>
+</body>
+</html>

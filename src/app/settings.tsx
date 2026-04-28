@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Alert, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { usePurchaseStore } from '@/stores/usePurchaseStore';
@@ -11,6 +12,7 @@ import { ProCard } from '@/components/ProCard';
 
 const PRIVACY_POLICY_URL = 'https://mooooncrypto.github.io/mockmaker-privacy/';
 const SUPPORT_EMAIL = 'mokotech7@gmail.com';
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.1';
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <View className="mx-5 mt-4 bg-white rounded-2xl p-4">{children}</View>;
@@ -195,7 +197,7 @@ export default function SettingsScreen() {
 
         <SectionCard>
           <Text className="text-sm font-semibold text-gray-500 mb-2">{t('settings.appInfoTitle')}</Text>
-          <Text className="text-base font-semibold text-gray-900">MockMaker v1.0.0</Text>
+          <Text className="text-base font-semibold text-gray-900">MockMaker v{APP_VERSION}</Text>
           <Text className="text-xs text-gray-400 mt-2 leading-4">{t('settings.reviewSafeNote')}</Text>
         </SectionCard>
 
