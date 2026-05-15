@@ -96,28 +96,17 @@ import {
   Merriweather_900Black,
 } from '@expo-google-fonts/merriweather';
 import { useEditorStore } from '@/stores/useEditorStore';
-import type { FrameId, FrameScreenType } from '@/stores/useEditorStore';
+import type { FrameId } from '@/stores/useEditorStore';
 import { STICKER_ASSETS } from '@/constants/stickers';
-import { getPreset, getMaxFrameScale, isStoreCanvasPreset } from '@/constants/canvasPresets';
 import type { Layer } from '@/types';
+import type { MediaSceneLayer } from '@/utils/mediaScene';
+import { buildMediaScene } from '@/utils/mediaScene';
+import { hasMediaCrop } from '@/utils/mediaCrop';
+import { computeFramePresentation } from '@/utils/frameRects';
+import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
 const FRAME_IMAGE_IPHONE = require('../../../assets/frame_img.png');
-
-// Hardcoded screen pixel bounds for the iPhone frame PNG.
-//   frame_img.png (1017×1680): opaque screen at x=228–808, y=216–1463
-const FRAME_HARDCODED_BOUNDS: Partial<Record<FrameId, {
-  minX: number; minY: number; maxX: number; maxY: number;
-  type: 'opaque' | 'transparent';
-}>> = {
-  'iphone': { minX: 228, minY: 216, maxX: 808, maxY: 1463, type: 'opaque' },
-};
-
-// Corner radius ratio per frame type (fraction of screenRect.width)
-function frameClipCornerRatio(frameId: FrameId): number {
-  if (frameId === 'app-icon') return 0.22;
-  return 0.11; // iphone
-}
 
 // ─── Canvas (public) ────────────────────────────────────────────────────────
 
@@ -134,11 +123,7 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
   const templateId = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const pixelRatio = PixelRatio.get();
-  const _preset = getPreset(canvasPresetId);
-  const canvasWidth  = _preset.exportW / pixelRatio;
-  const canvasHeight = templateId === 'split'
-    ? (_preset.exportH / pixelRatio) / 2
-    : _preset.exportH / pixelRatio;
+  const { canvasWidth, canvasHeight } = getLogicalCanvasSize(canvasPresetId, templateId, pixelRatio);
 
   // Register all fonts as RN font families so TextEditPanel preview can use them
   useFonts({
@@ -169,161 +154,44 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
   const background         = useEditorStore((s) => s.background);
   const layers             = useEditorStore((s) => s.layers);
   const selectedFrameId    = useEditorStore((s) => s.selectedFrameId);
-  const frameEnabled       = selectedFrameId !== 'none';
-  const frameScreenRect    = useEditorStore((s) => s.frameScreenRect);
-  const setFrameScreenRect = useEditorStore((s) => s.setFrameScreenRect);
   const selectedLayerId    = useEditorStore((s) => s.selectedLayerId);
-  const frameScreenType    = useEditorStore((s) => s.frameScreenType);
   const frameScale         = useEditorStore((s) => s.frameScale);
   const framePosition      = useEditorStore((s) => s.framePosition);
 
-  const frameScreenRect2    = useEditorStore((s) => s.frameScreenRect2);
-  const setFrameScreenRect2 = useEditorStore((s) => s.setFrameScreenRect2);
-
   const frameImage = useImage(FRAME_IMAGE_IPHONE);
-
-  // iPhone frame layout — single frame (used by single/top-half/split)
-  const frameLayout = useMemo(() => {
-    if (!frameImage || selectedFrameId !== 'iphone' || templateId === 'double') return null;
-    const imgW = frameImage.width();
-    const imgH = frameImage.height();
-
-    let scale: number;
-    let drawX: number;
-    let drawY: number;
-
-    if (templateId === 'top-half') {
-      const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
-      const effectiveScale = Math.min(frameScale, maxFS);
-      const visibleFraction = 2 / 3;
-      const widthFitScale = canvasWidth / imgW;
-      const topCropScale = (canvasHeight / visibleFraction) / imgH;
-      const aspectRatio = canvasWidth / canvasHeight;
-      const baseTopScale = isStoreCanvasPreset(canvasPresetId)
-        ? topCropScale * 0.72
-        : aspectRatio >= 1
-        ? widthFitScale * 0.82
-        : aspectRatio >= 0.9
-        ? widthFitScale * 1.0
-        : widthFitScale * 1.15;
-
-      scale = baseTopScale * effectiveScale;
-      const drawWidth  = imgW * scale;
-      const drawHeight = imgH * scale;
-
-      drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
-      drawY = !isStoreCanvasPreset(canvasPresetId) && aspectRatio >= 1
-        ? framePosition.y
-        : canvasHeight - drawHeight * visibleFraction + framePosition.y;
-      return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
-    }
-
-    const baseScale  = Math.min(canvasWidth / imgW, canvasHeight / imgH);
-    const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
-    scale      = baseScale * Math.min(frameScale, maxFS);
-    const drawWidth  = imgW * scale;
-    const drawHeight = imgH * scale;
-    drawX = (canvasWidth  - drawWidth)  / 2 + framePosition.x;
-    drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
-    return { drawX, drawY, drawWidth, drawHeight, scale, imgW, imgH };
-  }, [frameImage, canvasWidth, canvasHeight, frameScale, framePosition, selectedFrameId, templateId]);
-
-  // Double template: two iPhone frames side-by-side
-  const doubleFrameLayout = useMemo(() => {
-    if (!frameImage || templateId !== 'double') return null;
-    const imgW = frameImage.width();
-    const imgH = frameImage.height();
-    const halfW  = canvasWidth / 2;
-    const baseScale = Math.min(halfW / imgW, canvasHeight / imgH);
-    const maxFS = getMaxFrameScale(canvasWidth, canvasHeight, templateId);
-    const scale     = baseScale * Math.min(frameScale, maxFS);
-    const drawWidth  = imgW * scale;
-    const drawHeight = imgH * scale;
-    const leftDrawX  = (halfW  - drawWidth)  / 2 + framePosition.x;
-    const rightDrawX = halfW + (halfW - drawWidth) / 2 + framePosition.x;
-    const drawY      = (canvasHeight - drawHeight) / 2 + framePosition.y;
-    return { scale, imgW, imgH, drawWidth, drawHeight, leftDrawX, rightDrawX, drawY };
-  }, [frameImage, canvasWidth, canvasHeight, frameScale, framePosition, templateId]);
-
-  // App-icon frame layout (square, centered, with position offset)
-  const appIconLayout = useMemo(() => {
-    if (selectedFrameId !== 'app-icon') return null;
-    const size = Math.min(canvasWidth, canvasHeight) * 0.55 * frameScale;
-    const x = (canvasWidth  - size) / 2 + framePosition.x;
-    const y = (canvasHeight - size) / 2 + framePosition.y;
-    const cr = size * 0.22;
-    return { x, y, size, cr };
-  }, [selectedFrameId, canvasWidth, canvasHeight, frameScale, framePosition]);
-
-  // Update frameScreenRect whenever frame layout changes (single / top-half / split)
-  useEffect(() => {
-    if (templateId === 'double') return; // handled separately below
-    if (!frameEnabled) {
-      setFrameScreenRect(null, null);
-      return;
-    }
-
-    if (selectedFrameId === 'app-icon' && appIconLayout) {
-      setFrameScreenRect({
-        x: appIconLayout.x,
-        y: appIconLayout.y,
-        width: appIconLayout.size,
-        height: appIconLayout.size,
-      }, 'transparent');
-      return;
-    }
-
-    if (frameLayout) {
-      const { drawX, drawY, scale } = frameLayout;
-      const hardcoded = FRAME_HARDCODED_BOUNDS[selectedFrameId];
-      if (!hardcoded) { setFrameScreenRect(null, null); return; }
-      const { minX, minY, maxX, maxY, type } = hardcoded;
-      const rectX = drawX + minX * scale;
-      const rectY = drawY + minY * scale;
-      const rectW = (maxX - minX + 1) * scale;
-      const rectH = (maxY - minY + 1) * scale;
-
-      setFrameScreenRect({
-        x: rectX,
-        y: rectY,
-        width: rectW,
-        height: rectH,
-      }, type);
-    }
-  }, [appIconLayout, canvasHeight, canvasWidth, frameEnabled, frameLayout, selectedFrameId, setFrameScreenRect, templateId]);
-
-  // Update both screenRects for double template
-  useEffect(() => {
-    if (templateId !== 'double' || !doubleFrameLayout) return;
-    const hardcoded = FRAME_HARDCODED_BOUNDS['iphone'];
-    if (!hardcoded) return;
-    const { minX, minY, maxX, maxY, type } = hardcoded;
-    const { scale, leftDrawX, rightDrawX, drawY } = doubleFrameLayout;
-    const w = (maxX - minX + 1) * scale;
-    const h = (maxY - minY + 1) * scale;
-    const sy = drawY + minY * scale;
-    setFrameScreenRect({ x: leftDrawX  + minX * scale, y: sy, width: w, height: h }, type);
-    setFrameScreenRect2({ x: rightDrawX + minX * scale, y: sy, width: w, height: h });
-  }, [doubleFrameLayout, templateId]);
+  const framePresentation = useMemo(
+    () =>
+      computeFramePresentation({
+        templateId,
+        selectedFrameId,
+        frameScale,
+        framePosition,
+        canvasPresetId,
+        pixelRatio,
+      }),
+    [canvasPresetId, framePosition, frameScale, pixelRatio, selectedFrameId, templateId]
+  );
 
   useEffect(() => { setCanvasRef(canvasRef); }, [canvasRef]);
-
-  // Compute screenRect directly for rendering — app-icon uses appIconLayout directly
-  // to avoid store update timing issues. iPhone frame uses the stored rect (pixel-detected).
-  const screenRect = useMemo(() => {
-    if (!frameEnabled) return null;
-    if (selectedFrameId === 'app-icon' && appIconLayout) {
-      return {
-        x: appIconLayout.x,
-        y: appIconLayout.y,
-        width:  appIconLayout.size,
-        height: appIconLayout.size,
-      };
-    }
-    return frameScreenRect;
-  }, [frameEnabled, selectedFrameId, appIconLayout, frameScreenRect]);
-
-  const clipCrRatio = frameClipCornerRatio(selectedFrameId);
+  const mediaScene = useMemo(
+    () =>
+      buildMediaScene({
+        layers,
+        templateId,
+        selectedFrameId,
+        frameScale,
+        framePosition,
+        canvasPresetId,
+        pixelRatio,
+        canvasWidth,
+        canvasHeight,
+      }),
+    [canvasHeight, canvasPresetId, canvasWidth, framePosition, frameScale, layers, pixelRatio, selectedFrameId, templateId]
+  );
+  const mediaSceneByLayerId = useMemo(
+    () => new Map(mediaScene.map((item) => [item.layer.id, item])),
+    [mediaScene]
+  );
 
   // Frame drag/pinch transforms (applied as Group transform on the frame)
   const frameDragTransform = useDerivedValue(() => [
@@ -359,16 +227,16 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
         )}
 
         {/* Single/top-half/split: iPhone frame PNG */}
-        {selectedFrameId === 'iphone' && frameImage && frameLayout && templateId !== 'double' && (
+        {selectedFrameId === 'iphone' && frameImage && framePresentation.primaryFrame && templateId !== 'double' && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
               <Group clip={Skia.XYWHRect(0, 0, canvasWidth, canvasHeight)}>
                 <Image
                   image={frameImage}
-                  x={frameLayout.drawX}
-                  y={frameLayout.drawY}
-                  width={frameLayout.drawWidth}
-                  height={frameLayout.drawHeight}
+                  x={framePresentation.primaryFrame.x}
+                  y={framePresentation.primaryFrame.y}
+                  width={framePresentation.primaryFrame.width}
+                  height={framePresentation.primaryFrame.height}
                   fit="fill"
                 />
               </Group>
@@ -377,23 +245,23 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
         )}
 
         {/* Double template: two iPhone frames */}
-        {templateId === 'double' && frameImage && doubleFrameLayout && (
+        {templateId === 'double' && frameImage && framePresentation.primaryFrame && framePresentation.secondaryFrame && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
               <Image
                 image={frameImage}
-                x={doubleFrameLayout.leftDrawX}
-                y={doubleFrameLayout.drawY}
-                width={doubleFrameLayout.drawWidth}
-                height={doubleFrameLayout.drawHeight}
+                x={framePresentation.primaryFrame.x}
+                y={framePresentation.primaryFrame.y}
+                width={framePresentation.primaryFrame.width}
+                height={framePresentation.primaryFrame.height}
                 fit="fill"
               />
               <Image
                 image={frameImage}
-                x={doubleFrameLayout.rightDrawX}
-                y={doubleFrameLayout.drawY}
-                width={doubleFrameLayout.drawWidth}
-                height={doubleFrameLayout.drawHeight}
+                x={framePresentation.secondaryFrame.x}
+                y={framePresentation.secondaryFrame.y}
+                width={framePresentation.secondaryFrame.width}
+                height={framePresentation.secondaryFrame.height}
                 fit="fill"
               />
             </Group>
@@ -401,27 +269,27 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
         )}
 
         {/* App-icon frame — rounded rect border + shadow */}
-        {selectedFrameId === 'app-icon' && appIconLayout && (
+        {selectedFrameId === 'app-icon' && framePresentation.appIconFrame && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
               {/* Drop shadow */}
               <RoundedRect
-                x={appIconLayout.x}
-                y={appIconLayout.y}
-                width={appIconLayout.size}
-                height={appIconLayout.size}
-                r={appIconLayout.cr}
+                x={framePresentation.appIconFrame.x}
+                y={framePresentation.appIconFrame.y}
+                width={framePresentation.appIconFrame.size}
+                height={framePresentation.appIconFrame.size}
+                r={framePresentation.appIconFrame.cornerRadius}
               >
                 <Shadow dx={0} dy={4} blur={20} color="rgba(0,0,0,0.30)" />
                 <Paint color="transparent" />
               </RoundedRect>
               {/* Border */}
               <RoundedRect
-                x={appIconLayout.x}
-                y={appIconLayout.y}
-                width={appIconLayout.size}
-                height={appIconLayout.size}
-                r={appIconLayout.cr}
+                x={framePresentation.appIconFrame.x}
+                y={framePresentation.appIconFrame.y}
+                width={framePresentation.appIconFrame.size}
+                height={framePresentation.appIconFrame.size}
+                r={framePresentation.appIconFrame.cornerRadius}
                 style="stroke"
                 strokeWidth={2}
                 color="rgba(148,163,184,0.8)"
@@ -431,16 +299,13 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
         )}
 
         {/* Image layers — clipped to screen rect */}
-        {layers.filter((l) => l.type !== 'text' && l.type !== 'sticker').map((layer) => (
+        {layers.filter((l) => l.type === 'image').map((layer) => (
           <LayerRenderer
             key={layer.id}
             layer={layer}
+            sceneItem={mediaSceneByLayerId.get(layer.id)}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
-            screenRect={screenRect}
-            screenRect2={frameScreenRect2}
-            frameScreenType={frameScreenType}
-            clipCrRatio={clipCrRatio}
             isSelected={layer.id === selectedLayerId}
             dragOffsetX={dragOffsetX}
             dragOffsetY={dragOffsetY}
@@ -455,10 +320,6 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
             layer={layer}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
-            screenRect={screenRect}
-            screenRect2={frameScreenRect2}
-            frameScreenType={frameScreenType}
-            clipCrRatio={clipCrRatio}
             isSelected={layer.id === selectedLayerId}
             dragOffsetX={dragOffsetX}
             dragOffsetY={dragOffsetY}
@@ -507,16 +368,11 @@ function BackgroundImageRenderer({ uri, width, height }: { uri: string; width: n
 
 // ─── LayerRenderer ───────────────────────────────────────────────────────────
 
-type ScreenRect = { x: number; y: number; width: number; height: number };
-
 interface LayerRendererProps {
   layer: Layer;
+  sceneItem?: MediaSceneLayer;
   canvasWidth: number;
   canvasHeight: number;
-  screenRect: ScreenRect | null;
-  screenRect2?: ScreenRect | null;
-  frameScreenType: FrameScreenType;
-  clipCrRatio: number;
   isSelected: boolean;
   dragOffsetX: SharedValue<number>;
   dragOffsetY: SharedValue<number>;
@@ -794,47 +650,17 @@ function TextLayerRenderer({ layer, canvasWidth, canvasHeight, isSelected, dragO
 
 // ─── Image Layer ─────────────────────────────────────────────────────────────
 
-function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, screenRect, screenRect2, clipCrRatio, isSelected, dragOffsetX, dragOffsetY, pinchScale }: LayerRendererProps) {
+function ImageLayerRenderer({ layer, sceneItem, isSelected, dragOffsetX, dragOffsetY, pinchScale }: LayerRendererProps) {
   const image = useImage(layer.uri);
 
-  // For 'double' template, route to the correct slot's rect
-  const activeScreenRect = (layer.frameSlot === 1 && screenRect2 != null) ? screenRect2 : screenRect;
-
-  const hasCrop = layer.cropX !== undefined && layer.cropW !== undefined && layer.cropH !== undefined;
-
-  const imgNativeW = image?.width()  ?? 1;
-  const imgNativeH = image?.height() ?? 1;
-
-  let drawX: number, drawY: number, drawW: number, drawH: number;
-
-  if (hasCrop && activeScreenRect) {
-    const scaleX = activeScreenRect.width  / layer.cropW!;
-    const scaleY = activeScreenRect.height / layer.cropH!;
-    const effectiveScale = Math.max(scaleX, scaleY);
-    drawW = imgNativeW * effectiveScale;
-    drawH = imgNativeH * effectiveScale;
-    const cropCenterX = layer.cropX! + layer.cropW! / 2;
-    const cropCenterY = layer.cropY! + layer.cropH! / 2;
-    drawX = (activeScreenRect.x + activeScreenRect.width  / 2) - cropCenterX * effectiveScale;
-    drawY = (activeScreenRect.y + activeScreenRect.height / 2) - cropCenterY * effectiveScale;
-  } else if (activeScreenRect) {
-    drawX = activeScreenRect.x;
-    drawY = activeScreenRect.y;
-    drawW = activeScreenRect.width;
-    drawH = activeScreenRect.height;
-  } else {
-    const ar = (layer.size.width || 1) / (layer.size.height || 1);
-    const mw = canvasWidth * 0.9, mh = canvasHeight * 0.9;
-    if (ar >= mw / mh) {
-      drawW = mw; drawH = mw / ar;
-    } else {
-      drawH = mh; drawW = mh * ar;
-    }
-    drawX = (canvasWidth  - drawW) / 2 + layer.position.x;
-    drawY = (canvasHeight - drawH) / 2 + layer.position.y;
-  }
-
-  const interactiveMode = !hasCrop && !activeScreenRect;
+  const hasCrop = hasMediaCrop(layer);
+  const activeScreenRect = sceneItem?.isFramed ? sceneItem.targetRect : null;
+  const drawRect = sceneItem?.drawRect ?? { x: 0, y: 0, width: 0, height: 0 };
+  const drawX = drawRect.x;
+  const drawY = drawRect.y;
+  const drawW = drawRect.width;
+  const drawH = drawRect.height;
+  const interactiveMode = !hasCrop && !sceneItem?.isFramed;
 
   const dragTransform = useDerivedValue(() => [
     { translateX: isSelected && interactiveMode ? dragOffsetX.value : 0 },
@@ -857,7 +683,7 @@ function ImageLayerRenderer({ layer, canvasWidth, canvasHeight, screenRect, scre
   const selW = activeScreenRect ? activeScreenRect.width  : drawW;
   const selH = activeScreenRect ? activeScreenRect.height : drawH;
 
-  const cr = activeScreenRect ? activeScreenRect.width * clipCrRatio : 0;
+  const cr = activeScreenRect ? (sceneItem?.cornerRadius ?? 0) : 0;
   const clipRRect = activeScreenRect
     ? Skia.RRectXY(
         Skia.XYWHRect(activeScreenRect.x, activeScreenRect.y, activeScreenRect.width, activeScreenRect.height),

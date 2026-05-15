@@ -1,0 +1,34 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
+
+export type VideoOverlayInput = {
+  uri: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  cornerRadius: number;
+  zIndex: number;
+  order: number;
+  cropXRatio?: number;
+  cropYRatio?: number;
+  cropWRatio?: number;
+  cropHRatio?: number;
+};
+
+type VideoCompositorModule = {
+  composeAsync(backgroundUri: string, overlays: VideoOverlayInput[]): Promise<string>;
+};
+
+const videoCompositorModule =
+  requireOptionalNativeModule<VideoCompositorModule>('VideoCompositor');
+
+export function getVideoCompositorModule(): VideoCompositorModule {
+  if (!videoCompositorModule) {
+    throw new Error(
+      'Native module "VideoCompositor" is not available in this build. Rebuild the iOS development client after pod install.'
+    );
+  }
+  return videoCompositorModule;
+}
+
+export default videoCompositorModule;

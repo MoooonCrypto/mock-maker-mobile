@@ -151,7 +151,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const layers = await Promise.all(
       input.layers.map(async (layer) => {
-        if (layer.type !== 'image') return layer;
+        if (layer.type !== 'image' && layer.type !== 'video') return layer;
         const permanentUri = await ensurePermanentUri(layer.uri, input.id);
         return { ...layer, uri: permanentUri };
       })

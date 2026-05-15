@@ -1,0 +1,11 @@
+{
+  "name": "video-compositor",
+  "version": "1.0.0",
+  "description": "Local Expo module for compositing mockup videos on iOS.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

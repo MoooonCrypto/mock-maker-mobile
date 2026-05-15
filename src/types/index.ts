@@ -12,7 +12,7 @@ export interface Project {
 
 export interface Layer {
   id: string;
-  type: 'image' | 'text' | 'sticker';
+  type: 'image' | 'video' | 'text' | 'sticker';
   uri: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
@@ -29,6 +29,7 @@ export interface Layer {
   cropY?: number;
   cropW?: number;
   cropH?: number;
+  durationMs?: number;
   // Text-only fields
   textColor?: string;
   underline?: boolean;

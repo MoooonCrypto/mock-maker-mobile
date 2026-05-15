@@ -6,11 +6,7 @@ import type { TemplateId } from '../constants/templates';
 import type { CanvasPresetId } from '../constants/canvasPresets';
 import { DEFAULT_PRESET_ID } from '../constants/canvasPresets';
 
-type ScreenRect = { x: number; y: number; width: number; height: number };
-
 export type FrameId = 'iphone' | 'iphone-se' | 'app-icon' | 'none';
-
-export type FrameScreenType = 'transparent' | 'opaque' | null;
 
 export interface PersistedEditorState {
   templateId: TemplateId;
@@ -31,9 +27,6 @@ interface EditorState {
   selectedFrameId: PersistedEditorState['selectedFrameId'];
   frameScale: PersistedEditorState['frameScale'];
   framePosition: PersistedEditorState['framePosition'];
-  frameScreenRect: ScreenRect | null;
-  frameScreenRect2: ScreenRect | null;
-  frameScreenType: FrameScreenType;
   background: PersistedEditorState['background'];
   activeTool: 'select' | 'background' | 'text' | 'canvas' | 'layers' | 'frame' | 'sticker';
   canvasRef: RefObject<CanvasRef | null> | null;
@@ -49,8 +42,6 @@ interface EditorState {
   setSelectedFrameId: (id: FrameId) => void;
   setFrameScale: (scale: number) => void;
   setFramePosition: (pos: { x: number; y: number }) => void;
-  setFrameScreenRect: (rect: ScreenRect | null, type: FrameScreenType) => void;
-  setFrameScreenRect2: (rect: ScreenRect | null) => void;
   setBackground: (bg: Background) => void;
   setActiveTool: (tool: EditorState['activeTool']) => void;
   addStickerLayer: (key: string, size: { width: number; height: number }) => void;
@@ -123,9 +114,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedFrameId: 'iphone',
   frameScale: 0.85,
   framePosition: { x: 0, y: 0 },
-  frameScreenRect: null,
-  frameScreenRect2: null,
-  frameScreenType: null,
   background: defaultBackground,
   activeTool: 'select',
   canvasRef: null,
@@ -134,9 +122,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   setTemplateId: (id) => set({
     templateId: id,
     ...templateDefaults(id),
-    frameScreenRect: null,
-    frameScreenRect2: null,
-    frameScreenType: null,
   }),
   setSessionName: (name) => set({ sessionName: name }),
   setLayers: (layers) => set({ layers }),
@@ -151,18 +136,27 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedLayerId: s.selectedLayerId === id ? null : s.selectedLayerId,
     })),
   selectLayer: (id) => set({ selectedLayerId: id }),
-  setSelectedFrameId: (id) => set({
+  setSelectedFrameId: (id) => set((s) => ({
     selectedFrameId: id,
     frameScale: 0.85,
     framePosition: { x: 0, y: 0 },
-    frameScreenRect: null,
-    frameScreenRect2: null,
-    frameScreenType: null,
-  }),
+    layers: id === 'none'
+      ? s.layers.map((layer) => (
+          layer.type === 'image' || layer.type === 'video'
+            ? {
+                ...layer,
+                cropX: undefined,
+                cropY: undefined,
+                cropW: undefined,
+                cropH: undefined,
+                frameSlot: undefined,
+              }
+            : layer
+        ))
+      : s.layers,
+  })),
   setFrameScale: (scale) => set({ frameScale: scale }),
   setFramePosition: (pos) => set({ framePosition: pos }),
-  setFrameScreenRect: (rect, type) => set({ frameScreenRect: rect, frameScreenType: type }),
-  setFrameScreenRect2: (rect) => set({ frameScreenRect2: rect }),
   setBackground: (bg) => set({ background: bg }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   addStickerLayer: (key, size) =>
@@ -174,9 +168,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   setCanvasPresetId: (id) => set((s) => ({
     canvasPresetId: id,
     ...templateDefaults(s.templateId),
-    frameScreenRect: null,
-    frameScreenRect2: null,
-    frameScreenType: null,
   })),
   hydrateProject: (project) =>
     set({
@@ -187,9 +178,6 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedFrameId: project.selectedFrameId,
       frameScale: project.frameScale,
       framePosition: project.framePosition,
-      frameScreenRect: null,
-      frameScreenRect2: null,
-      frameScreenType: null,
       background: project.background,
       activeTool: 'select',
       canvasPresetId: project.canvasPresetId,
@@ -203,9 +191,6 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedFrameId: 'iphone',
       frameScale: 0.85,
       framePosition: { x: 0, y: 0 },
-      frameScreenRect: null,
-      frameScreenRect2: null,
-      frameScreenType: null,
       background: defaultBackground,
       activeTool: 'select',
       canvasRef: null,

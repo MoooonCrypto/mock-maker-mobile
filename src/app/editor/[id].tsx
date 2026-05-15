@@ -4,15 +4,14 @@ import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicato
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
-import * as Haptics from 'expo-haptics';
 import { ImageFormat } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
 import { useEditorStore, createDefaultLayer } from '@/stores/useEditorStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { usePurchaseStore } from '@/stores/usePurchaseStore';
 import { getPreset, getMaxFrameScale } from '@/constants/canvasPresets';
+import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
+import { computeFrameScreenRects } from '@/utils/frameRects';
 import { t } from '@/i18n';
 import { Canvas } from '@/components/editor/Canvas';
 import { GestureCanvas } from '@/components/editor/GestureCanvas';
@@ -21,13 +20,13 @@ import { BackgroundPicker } from '@/components/editor/BackgroundPicker';
 import { LayerPanel } from '@/components/editor/LayerPanel';
 import { TextEditPanel } from '@/components/editor/TextEditPanel';
 import { StickerPicker } from '@/components/editor/StickerPicker';
-import { ImageCropModal } from '@/components/editor/ImageCropModal';
+import { MediaCropModal } from '@/components/editor/MediaCropModal';
 import { CanvasPicker } from '@/components/editor/CanvasPicker';
+import { VideoOverlay } from '@/components/editor/VideoOverlay';
 import { colors } from '@/constants/theme';
-import { pickImage } from '@/utils/media';
+import { pickImage, pickVideo } from '@/utils/media';
 import { PRO_FALLBACK_PRICE_LABEL } from '@/config/purchases';
 import { ProCard } from '@/components/ProCard';
-import { resizeSkiaImage } from '@/services/compositing';
 import MobileAds, {
   InterstitialAd,
   AdEventType,
@@ -37,6 +36,8 @@ import MobileAds, {
 const AD_UNIT_ID = __DEV__
   ? TestIds.INTERSTITIAL
   : 'ca-app-pub-2543814564794464/2351282112';
+
+const MAX_VIDEO_DURATION_MS = 2 * 60 * 1000;
 
 // ─── Shared slider hook ───────────────────────────────────────────────────────
 
@@ -76,9 +77,7 @@ function FrameSizePanel() {
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const [trackW, setTrackW] = useState(300);
   const pixelRatio = PixelRatio.get();
-  const preset = getPreset(canvasPresetId);
-  const canvasLogW = preset.exportW / pixelRatio;
-  const canvasLogH = templateId === 'split' ? (preset.exportH / pixelRatio) / 2 : preset.exportH / pixelRatio;
+  const { canvasWidth: canvasLogW, canvasHeight: canvasLogH } = getLogicalCanvasSize(canvasPresetId, templateId, pixelRatio);
   const minScale = 0.3;
   const maxScale = getMaxFrameScale(canvasLogW, canvasLogH, templateId);
   const scaleRange = Math.max(maxScale - minScale, 0.001);
@@ -187,7 +186,6 @@ export default function EditorScreen() {
     selectedFrameId,
     frameScale,
     framePosition,
-    frameScreenRect,
     canvasRef,
     reset,
     templateId,
@@ -220,7 +218,7 @@ export default function EditorScreen() {
   const [busy, setBusy] = useState(false);
 
   const [cropPending, setCropPending] = useState<{
-    uri: string; width: number; height: number; frameSlot?: 0 | 1;
+    type: 'image' | 'video'; uri: string; width: number; height: number; frameSlot?: 0 | 1; durationMs?: number;
   } | null>(null);
 
   // ─── Interstitial Ad ───────────────────────────────────────────────────────
@@ -286,103 +284,10 @@ export default function EditorScreen() {
     return () => reset();
   }, [id, reset]);
 
-  // ─── Ad helper ─────────────────────────────────────────────────────────────
-
-  const showAdThenAlert = (title: string, msg: string) => {
-    if (isPro) {
-      Alert.alert(title, msg);
-      return;
-    }
-    if (adLoadedRef.current && interstitialRef.current) {
-      pendingAlertRef.current = { title, msg };
-      interstitialRef.current.show();
-    } else {
-      Alert.alert(title, msg);
-    }
-  };
-
   // ─── Export ────────────────────────────────────────────────────────────────
 
-  const pixelRatio = PixelRatio.get();
-  const _preset = getPreset(canvasPresetId);
-  const canvasLogW = _preset.exportW / pixelRatio;
-  const canvasLogH = templateId === 'split' ? (_preset.exportH / pixelRatio) / 2 : _preset.exportH / pixelRatio;
-
-  const exportTo = async (target: 'photos' | 'files') => {
-    if (!canvasRef?.current) {
-      Alert.alert(t('editor.errTitle'), t('editor.errCanvasNotFound'));
-      return;
-    }
-    setBusy(true);
-    try {
-      if (target === 'photos') {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(t('editor.errPermissionTitle'), t('editor.errPermission'));
-          return;
-        }
-      }
-
-      if (templateId === 'split') {
-        const halfW = canvasLogW / 2;
-        const bounds = [
-          { x: 0,     y: 0, width: halfW, height: canvasLogH },
-          { x: halfW, y: 0, width: halfW, height: canvasLogH },
-        ];
-        const ts = Date.now();
-        for (let i = 0; i < bounds.length; i++) {
-          const snap = await canvasRef.current.makeImageSnapshotAsync(bounds[i]);
-          if (!snap) throw new Error(`${t('editor.errSnapshotFailed')} (${i + 1})`);
-          const resizedSnap = resizeSkiaImage(snap, _preset.exportW, _preset.exportH);
-          const encoded = resizedSnap.encodeToBase64(ImageFormat.PNG, 100);
-          const file = new File(Paths.cache, `mockup_${ts}_${i + 1}.png`);
-          file.write(encoded, { encoding: 'base64' });
-          if (target === 'photos') {
-            await MediaLibrary.saveToLibraryAsync(file.uri);
-          } else {
-            await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
-          }
-        }
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        showAdThenAlert(
-          t('editor.doneTitle'),
-          target === 'photos' ? t('editor.exportDone2') : t('editor.exportDoneShared')
-        );
-        return;
-      }
-
-      const snap = await canvasRef.current.makeImageSnapshotAsync();
-      if (!snap) throw new Error(t('editor.errSnapshotFailed'));
-
-      const resizedSnap = resizeSkiaImage(snap, _preset.exportW, _preset.exportH);
-      const encoded = resizedSnap.encodeToBase64(ImageFormat.PNG, 100);
-      const file    = new File(Paths.cache, `mockup_${Date.now()}.png`);
-      file.write(encoded, { encoding: 'base64' });
-
-      if (target === 'photos') {
-        await MediaLibrary.saveToLibraryAsync(file.uri);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        showAdThenAlert(t('editor.doneTitle'), t('editor.exportDonePhotos'));
-      } else {
-        await Sharing.shareAsync(file.uri, { mimeType: 'image/png' });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        showAdThenAlert(t('editor.doneTitle'), t('editor.exportDoneShared'));
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      Alert.alert(t('editor.errTitle'), `${t('editor.exportFailed')}\n${msg}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleSaveOptions = () => {
-    Alert.alert(t('editor.exportTitle'), undefined, [
-      { text: t('editor.exportSavePhotos'), onPress: () => exportTo('photos') },
-      { text: t('editor.exportSaveFiles'),  onPress: () => exportTo('files') },
-      { text: t('editor.exportCancel'), style: 'cancel' },
-    ]);
+    router.push(`/export/${projectId}`);
   };
 
   const openProjectSave = () => {
@@ -470,17 +375,30 @@ export default function EditorScreen() {
     return offsets[index % offsets.length];
   };
 
+  const clearFrameMediaLayers = (frameSlot?: 0 | 1) => {
+    if (templateId === 'double') {
+      layers
+        .filter((layer) => (layer.type === 'image' || layer.type === 'video') && layer.frameSlot === frameSlot)
+        .forEach((layer) => removeLayer(layer.id));
+      return;
+    }
+
+    layers
+      .filter((layer) => layer.type === 'image' || layer.type === 'video')
+      .forEach((layer) => removeLayer(layer.id));
+  };
+
   const pickImageForSlot = async (slot: 0 | 1) => {
     try {
       const asset = await pickImage();
       if (!asset) return;
 
       if (frameEnabled) {
-        setCropPending({ uri: asset.uri, width: asset.width, height: asset.height, frameSlot: slot });
+        setCropPending({ type: 'image', uri: asset.uri, width: asset.width, height: asset.height, frameSlot: slot });
       } else {
         const layer = createDefaultLayer('image', asset.uri, { width: asset.width, height: asset.height });
         if (templateId === 'free') {
-          const imageCount = layers.filter((existingLayer) => existingLayer.type === 'image').length;
+          const imageCount = layers.filter((existingLayer) => existingLayer.type === 'image' || existingLayer.type === 'video').length;
           const offset = freeTemplateImageOffset(imageCount);
           addLayer({ ...layer, position: offset });
         } else {
@@ -493,38 +411,105 @@ export default function EditorScreen() {
     }
   };
 
-  const handleMediaPick = () => {
+  const pickVideoForSlot = async (slot: 0 | 1) => {
+    try {
+      const asset = await pickVideo();
+      if (!asset) return;
+      if (asset.durationMs != null && asset.durationMs > MAX_VIDEO_DURATION_MS) {
+        Alert.alert(t('editor.errTitle'), t('editor.errVideoTooLong'));
+        return;
+      }
+
+      if (frameEnabled) {
+        setCropPending({
+          type: 'video',
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+          durationMs: asset.durationMs,
+          frameSlot: slot,
+        });
+        return;
+      }
+
+      const layer = createDefaultLayer('video', asset.uri, { width: asset.width, height: asset.height });
+      const nextLayer = { ...layer, frameSlot: frameEnabled ? slot : undefined, durationMs: asset.durationMs };
+
+      if (templateId === 'free') {
+        const mediaCount = layers.filter((existingLayer) => existingLayer.type === 'image' || existingLayer.type === 'video').length;
+        const offset = freeTemplateImageOffset(mediaCount);
+        addLayer({ ...nextLayer, position: offset });
+        return;
+      }
+
+      addLayer(nextLayer);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert(t('editor.errTitle'), `${t('editor.errVideoLoadFailed')}\n${msg}`);
+    }
+  };
+
+  const selectSlotAndPick = (kind: 'image' | 'video') => {
+    if (kind === 'video' && templateId === 'split') {
+      Alert.alert(t('editor.errTitle'), t('editor.errVideoSplitUnsupported'));
+      return;
+    }
+
     if (templateId === 'double') {
       Alert.alert(t('editor.frameSelectTitle'), t('editor.frameSelectMsg'), [
-        { text: t('editor.frameSelectLeft'),  onPress: () => pickImageForSlot(0) },
-        { text: t('editor.frameSelectRight'), onPress: () => pickImageForSlot(1) },
+        { text: t('editor.frameSelectLeft'),  onPress: () => kind === 'image' ? pickImageForSlot(0) : pickVideoForSlot(0) },
+        { text: t('editor.frameSelectRight'), onPress: () => kind === 'image' ? pickImageForSlot(1) : pickVideoForSlot(1) },
         { text: t('editor.exportCancel'), style: 'cancel' },
       ]);
-    } else {
-      pickImageForSlot(0);
+      return;
     }
+
+    if (kind === 'image') {
+      pickImageForSlot(0);
+      return;
+    }
+    pickVideoForSlot(0);
+  };
+
+  const handleMediaPick = () => {
+    Alert.alert(t('editor.mediaPickTitle'), t('editor.mediaPickMessage'), [
+      { text: t('editor.mediaPickImage'), onPress: () => selectSlotAndPick('image') },
+      { text: t('editor.mediaPickVideo'), onPress: () => selectSlotAndPick('video') },
+      { text: t('editor.exportCancel'), style: 'cancel' },
+    ]);
   };
 
   const handleCropConfirm = (crop: { cropX: number; cropY: number; cropW: number; cropH: number }) => {
     if (!cropPending) return;
     const { frameSlot } = cropPending;
-    // For double template, remove only the layer in the same slot
-    if (templateId === 'double') {
-      layers.filter((l) => l.type === 'image' && l.frameSlot === frameSlot).forEach((l) => removeLayer(l.id));
-    } else {
-      layers.filter((l) => l.type === 'image').forEach((l) => removeLayer(l.id));
-    }
-    const layer = createDefaultLayer('image', cropPending.uri, {
+    clearFrameMediaLayers(frameSlot);
+    const layer = createDefaultLayer(cropPending.type, cropPending.uri, {
       width: cropPending.width,
       height: cropPending.height,
     });
-    addLayer({ ...layer, ...crop, frameSlot });
+    addLayer({
+      ...layer,
+      ...crop,
+      frameSlot,
+      durationMs: cropPending.durationMs,
+    });
     setCropPending(null);
   };
 
-  const screenAspectRatio = frameScreenRect
-    ? frameScreenRect.height / frameScreenRect.width
-    : _preset.exportH / _preset.exportW;
+  const cropFrameRects = computeFrameScreenRects({
+    templateId,
+    selectedFrameId,
+    frameScale,
+    framePosition,
+    canvasPresetId,
+    pixelRatio: PixelRatio.get(),
+  });
+  const cropScreenRect = templateId === 'double' && cropPending?.frameSlot === 1
+    ? cropFrameRects.secondary
+    : cropFrameRects.primary;
+  const screenAspectRatio = cropScreenRect
+    ? cropScreenRect.height / cropScreenRect.width
+    : getPreset(canvasPresetId).exportH / getPreset(canvasPresetId).exportW;
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
@@ -557,7 +542,10 @@ export default function EditorScreen() {
       <View style={{ flex: 1, backgroundColor: '#d1d5db' }} onLayout={(e) => setCanvasAreaH(e.nativeEvent.layout.height)}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <GestureCanvas canvasAreaH={canvasAreaH} dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS}>
-            <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
+            <>
+              <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
+              <VideoOverlay />
+            </>
           </GestureCanvas>
         </View>
         {activeTool !== 'select' && (
@@ -688,11 +676,12 @@ export default function EditorScreen() {
       </Modal>
 
       {cropPending && (
-        <ImageCropModal
+        <MediaCropModal
           visible={true}
-          imageUri={cropPending.uri}
-          imageWidth={cropPending.width}
-          imageHeight={cropPending.height}
+          mediaType={cropPending.type}
+          uri={cropPending.uri}
+          sourceWidth={cropPending.width}
+          sourceHeight={cropPending.height}
           screenAspectRatio={screenAspectRatio}
           onConfirm={handleCropConfirm}
           onCancel={() => setCropPending(null)}
