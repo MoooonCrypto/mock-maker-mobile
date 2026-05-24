@@ -473,11 +473,18 @@ export default function EditorScreen() {
   };
 
   const handleMediaPick = () => {
-    Alert.alert(t('editor.mediaPickTitle'), t('editor.mediaPickMessage'), [
+    if (templateId === 'split') {
+      selectSlotAndPick('image');
+      return;
+    }
+
+    const actions = [
       { text: t('editor.mediaPickImage'), onPress: () => selectSlotAndPick('image') },
       { text: t('editor.mediaPickVideo'), onPress: () => selectSlotAndPick('video') },
-      { text: t('editor.exportCancel'), style: 'cancel' },
-    ]);
+      { text: t('editor.exportCancel'), style: 'cancel' as const },
+    ];
+
+    Alert.alert(t('editor.mediaPickTitle'), t('editor.mediaPickMessage'), actions);
   };
 
   const handleCropConfirm = (crop: { cropX: number; cropY: number; cropW: number; cropH: number }) => {

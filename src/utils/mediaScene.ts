@@ -42,9 +42,7 @@ export function getFrameCornerRadius(frameId: FrameId, rectWidth: number): numbe
 
 function getMediaOverscan(frameId: FrameId, targetRect: ScreenRect): number {
   if (frameId !== 'iphone') return 0;
-  // Fill the last hairline gap between imported media and the tuned white screen.
-  // Keep this much smaller than the frame/base overscan so it doesn't eat into the bezel.
-  return Math.max(1, Math.round(targetRect.width * 0.008));
+  return 0;
 }
 
 function expandScreenRect(rect: ScreenRect, amount: number): ScreenRect {
