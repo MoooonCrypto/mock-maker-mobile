@@ -40,6 +40,22 @@ export function getFrameCornerRadius(frameId: FrameId, rectWidth: number): numbe
   return 18;
 }
 
+function getMediaOverscan(frameId: FrameId, targetRect: ScreenRect): number {
+  if (frameId !== 'iphone') return 0;
+  // Fill the last hairline gap between imported media and the tuned white screen.
+  // Keep this much smaller than the frame/base overscan so it doesn't eat into the bezel.
+  return Math.max(1, Math.round(targetRect.width * 0.008));
+}
+
+function expandScreenRect(rect: ScreenRect, amount: number): ScreenRect {
+  return {
+    x: rect.x - amount,
+    y: rect.y - amount,
+    width: rect.width + amount * 2,
+    height: rect.height + amount * 2,
+  };
+}
+
 export function buildMediaScene({
   layers,
   templateId,
@@ -66,6 +82,9 @@ export function buildMediaScene({
       const activeScreenRect = getActiveScreenRect(layer, framePresentation.primary, framePresentation.secondary);
       const sourceWidth = Math.max(layer.size.width || 1, 1);
       const sourceHeight = Math.max(layer.size.height || 1, 1);
+      const targetRect = activeScreenRect
+        ? expandScreenRect(activeScreenRect, getMediaOverscan(selectedFrameId, activeScreenRect))
+        : getFreeformMediaRect(layer, canvasWidth, canvasHeight);
       const sourceCrop = activeScreenRect && hasMediaCrop(layer)
         ? {
             cropX: layer.cropX,
@@ -74,9 +93,8 @@ export function buildMediaScene({
             cropH: layer.cropH,
           }
         : createFullMediaCrop(sourceWidth, sourceHeight);
-      const targetRect = activeScreenRect ?? getFreeformMediaRect(layer, canvasWidth, canvasHeight);
       const drawRect = activeScreenRect
-        ? computeFramedMediaDrawRect(sourceWidth, sourceHeight, activeScreenRect, sourceCrop)
+        ? computeFramedMediaDrawRect(sourceWidth, sourceHeight, targetRect, sourceCrop)
         : targetRect;
 
       return {
