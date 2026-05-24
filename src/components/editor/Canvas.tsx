@@ -106,7 +106,8 @@ import { computeFramePresentation } from '@/utils/frameRects';
 import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
 
 // ─── Frame image assets ──────────────────────────────────────────────────────
-const FRAME_IMAGE_IPHONE = require('../../../assets/frame_img.png');
+const FRAME_IMAGE_IPHONE_OVERLAY = require('../../../assets/frame_1_ver4.png');
+const FRAME_IMAGE_IPHONE_SCREEN = require('../../../assets/frame_2_ver4.png');
 
 // ─── Canvas (public) ────────────────────────────────────────────────────────
 
@@ -158,7 +159,9 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
   const frameScale         = useEditorStore((s) => s.frameScale);
   const framePosition      = useEditorStore((s) => s.framePosition);
 
-  const frameImage = useImage(FRAME_IMAGE_IPHONE);
+  const frameOverlayImage = useImage(FRAME_IMAGE_IPHONE_OVERLAY);
+  const frameScreenImage = useImage(FRAME_IMAGE_IPHONE_SCREEN);
+  const hasVideoLayers = layers.some((layer) => layer.type === 'video');
   const framePresentation = useMemo(
     () =>
       computeFramePresentation({
@@ -226,17 +229,17 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
           <BackgroundImageRenderer uri={background.imageUri} width={canvasWidth} height={canvasHeight} />
         )}
 
-        {/* Single/top-half/split: iPhone frame PNG */}
-        {selectedFrameId === 'iphone' && frameImage && framePresentation.primaryFrame && templateId !== 'double' && (
+        {/* Single/top-half/split: iPhone screen base */}
+        {selectedFrameId === 'iphone' && frameScreenImage && framePresentation.primaryScreenFrame && templateId !== 'double' && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
               <Group clip={Skia.XYWHRect(0, 0, canvasWidth, canvasHeight)}>
                 <Image
-                  image={frameImage}
-                  x={framePresentation.primaryFrame.x}
-                  y={framePresentation.primaryFrame.y}
-                  width={framePresentation.primaryFrame.width}
-                  height={framePresentation.primaryFrame.height}
+                  image={frameScreenImage}
+                  x={framePresentation.primaryScreenFrame.x}
+                  y={framePresentation.primaryScreenFrame.y}
+                  width={framePresentation.primaryScreenFrame.width}
+                  height={framePresentation.primaryScreenFrame.height}
                   fit="fill"
                 />
               </Group>
@@ -244,24 +247,24 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
           </Group>
         )}
 
-        {/* Double template: two iPhone frames */}
-        {templateId === 'double' && frameImage && framePresentation.primaryFrame && framePresentation.secondaryFrame && (
+        {/* Double template: two iPhone screen bases */}
+        {templateId === 'double' && frameScreenImage && framePresentation.primaryScreenFrame && framePresentation.secondaryScreenFrame && (
           <Group origin={framePinchOrigin} transform={framePinchTransform}>
             <Group transform={frameDragTransform}>
               <Image
-                image={frameImage}
-                x={framePresentation.primaryFrame.x}
-                y={framePresentation.primaryFrame.y}
-                width={framePresentation.primaryFrame.width}
-                height={framePresentation.primaryFrame.height}
+                image={frameScreenImage}
+                x={framePresentation.primaryScreenFrame.x}
+                y={framePresentation.primaryScreenFrame.y}
+                width={framePresentation.primaryScreenFrame.width}
+                height={framePresentation.primaryScreenFrame.height}
                 fit="fill"
               />
               <Image
-                image={frameImage}
-                x={framePresentation.secondaryFrame.x}
-                y={framePresentation.secondaryFrame.y}
-                width={framePresentation.secondaryFrame.width}
-                height={framePresentation.secondaryFrame.height}
+                image={frameScreenImage}
+                x={framePresentation.secondaryScreenFrame.x}
+                y={framePresentation.secondaryScreenFrame.y}
+                width={framePresentation.secondaryScreenFrame.width}
+                height={framePresentation.secondaryScreenFrame.height}
                 fit="fill"
               />
             </Group>
@@ -340,6 +343,44 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
             pinchScale={pinchScale}
           />
         ))}
+
+        {/* Image-only export/preview top overlay */}
+        {!hasVideoLayers && selectedFrameId === 'iphone' && frameOverlayImage && framePresentation.primaryOverlayFrame && templateId !== 'double' && (
+          <Group origin={framePinchOrigin} transform={framePinchTransform}>
+            <Group transform={frameDragTransform}>
+              <Image
+                image={frameOverlayImage}
+                x={framePresentation.primaryOverlayFrame.x}
+                y={framePresentation.primaryOverlayFrame.y}
+                width={framePresentation.primaryOverlayFrame.width}
+                height={framePresentation.primaryOverlayFrame.height}
+                fit="fill"
+              />
+            </Group>
+          </Group>
+        )}
+        {!hasVideoLayers && templateId === 'double' && frameOverlayImage && framePresentation.primaryOverlayFrame && framePresentation.secondaryOverlayFrame && (
+          <Group origin={framePinchOrigin} transform={framePinchTransform}>
+            <Group transform={frameDragTransform}>
+              <Image
+                image={frameOverlayImage}
+                x={framePresentation.primaryOverlayFrame.x}
+                y={framePresentation.primaryOverlayFrame.y}
+                width={framePresentation.primaryOverlayFrame.width}
+                height={framePresentation.primaryOverlayFrame.height}
+                fit="fill"
+              />
+              <Image
+                image={frameOverlayImage}
+                x={framePresentation.secondaryOverlayFrame.x}
+                y={framePresentation.secondaryOverlayFrame.y}
+                width={framePresentation.secondaryOverlayFrame.width}
+                height={framePresentation.secondaryOverlayFrame.height}
+                fit="fill"
+              />
+            </Group>
+          </Group>
+        )}
       </SkiaCanvas>
 
       {/* Split template: center divider (overlay, not in snapshot) */}

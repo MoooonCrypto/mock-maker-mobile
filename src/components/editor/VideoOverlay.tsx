@@ -80,28 +80,29 @@ export function VideoOverlay() {
         const drawRect = item.drawRect;
 
         return (
-          <View
-            key={layer.id}
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: rect.x,
-              top: rect.y,
-              width: rect.width,
-              height: rect.height,
-              overflow: 'hidden',
-              borderRadius: item.cornerRadius,
-              borderWidth: !item.isFramed && selectedLayerId === layer.id ? 1.5 : 0,
-              borderColor: 'rgba(43,140,238,0.9)',
-            }}
-          >
-            <VideoLayerView
-              uri={layer.uri}
-              drawLeft={drawRect.x - rect.x}
-              drawTop={drawRect.y - rect.y}
-              drawWidth={drawRect.width}
-              drawHeight={drawRect.height}
-            />
+          <View key={layer.id} pointerEvents="none">
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: rect.x,
+                top: rect.y,
+                width: rect.width,
+                height: rect.height,
+                overflow: 'hidden',
+                borderRadius: item.cornerRadius,
+                borderWidth: !item.isFramed && selectedLayerId === layer.id ? 1.5 : 0,
+                borderColor: 'rgba(43,140,238,0.9)',
+              }}
+            >
+              <VideoLayerView
+                uri={layer.uri}
+                drawLeft={drawRect.x - rect.x}
+                drawTop={drawRect.y - rect.y}
+                drawWidth={drawRect.width}
+                drawHeight={drawRect.height}
+              />
+            </View>
           </View>
         );
       })}

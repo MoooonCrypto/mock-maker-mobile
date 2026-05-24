@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, PixelRatio } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, PixelRatio, Image as RNImage } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,9 +14,13 @@ import { getPreset } from '@/constants/canvasPresets';
 import { type ExportSettings } from '@/types';
 import { resizeSkiaImage } from '@/services/compositing';
 import { composeVideoMockup } from '@/services/videoCompositing';
+import type { FrameOverlayInput } from '../../../modules/video-compositor/src';
 import { buildMediaScene } from '@/utils/mediaScene';
 import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
+import { computeFramePresentation } from '@/utils/frameRects';
 import { t } from '@/i18n';
+
+const FRAME_IMAGE_IPHONE_OVERLAY = require('../../../assets/frame_1_ver4.png');
 
 function waitForCanvasRefresh(): Promise<void> {
   return new Promise((resolve) => {
@@ -193,6 +197,15 @@ export default function ExportScreen() {
 
       const scaleX = preset.exportW / canvasLogW;
       const scaleY = preset.exportH / canvasLogH;
+      const framePresentation = computeFramePresentation({
+        templateId,
+        selectedFrameId,
+        frameScale,
+        framePosition,
+        canvasPresetId,
+        pixelRatio,
+      });
+      const frameImageUri = RNImage.resolveAssetSource(FRAME_IMAGE_IPHONE_OVERLAY).uri;
       const overlays = mediaScene.filter((item) => item.layer.type === 'video').map((item) => {
         return {
           uri: item.layer.uri,
@@ -209,8 +222,28 @@ export default function ExportScreen() {
           cropHRatio: item.sourceCropRatios.cropHRatio,
         };
       });
+      const primaryOverlayFrame = framePresentation.primaryOverlayFrame;
+      const secondaryOverlayFrame = framePresentation.secondaryOverlayFrame;
+      const frameOverlays: FrameOverlayInput[] = selectedFrameId === 'iphone'
+        ? [
+            primaryOverlayFrame && {
+              uri: frameImageUri,
+              x: primaryOverlayFrame.x * scaleX,
+              y: primaryOverlayFrame.y * scaleY,
+              width: primaryOverlayFrame.width * scaleX,
+              height: primaryOverlayFrame.height * scaleY,
+            },
+            templateId === 'double' && secondaryOverlayFrame && {
+              uri: frameImageUri,
+              x: secondaryOverlayFrame.x * scaleX,
+              y: secondaryOverlayFrame.y * scaleY,
+              width: secondaryOverlayFrame.width * scaleX,
+              height: secondaryOverlayFrame.height * scaleY,
+            },
+          ].filter((overlay): overlay is FrameOverlayInput => Boolean(overlay))
+        : [];
 
-      const uri = await composeVideoMockup(backgroundFile.uri, overlays);
+      const uri = await composeVideoMockup(backgroundFile.uri, overlays, frameOverlays);
       return { uri, cleanupUris: [backgroundFile.uri, uri] };
     });
   };

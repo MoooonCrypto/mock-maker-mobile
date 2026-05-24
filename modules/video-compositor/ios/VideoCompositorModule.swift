@@ -41,6 +41,23 @@ struct VideoOverlayRecord: Record {
   var cropHRatio: Double = 1
 }
 
+struct FrameOverlayRecord: Record {
+  @Field
+  var uri: String = ""
+
+  @Field
+  var x: Double = 0
+
+  @Field
+  var y: Double = 0
+
+  @Field
+  var width: Double = 0
+
+  @Field
+  var height: Double = 0
+}
+
 enum VideoCompositorException: Error, LocalizedError {
   case invalidBackground
   case invalidOverlay
@@ -76,12 +93,12 @@ public final class VideoCompositorModule: Module {
   public func definition() -> ModuleDefinition {
     Name("VideoCompositor")
 
-    AsyncFunction("composeAsync") { (backgroundUri: String, overlays: [VideoOverlayRecord]) async throws -> String in
-      try await compose(backgroundUri: backgroundUri, overlays: overlays)
+    AsyncFunction("composeAsync") { (backgroundUri: String, overlays: [VideoOverlayRecord], frameOverlays: [FrameOverlayRecord]) async throws -> String in
+      try await compose(backgroundUri: backgroundUri, overlays: overlays, frameOverlays: frameOverlays)
     }
   }
 
-  private func compose(backgroundUri: String, overlays: [VideoOverlayRecord]) async throws -> String {
+  private func compose(backgroundUri: String, overlays: [VideoOverlayRecord], frameOverlays: [FrameOverlayRecord]) async throws -> String {
     guard !overlays.isEmpty else {
       throw VideoCompositorException.invalidOverlay
     }
@@ -206,6 +223,10 @@ public final class VideoCompositorModule: Module {
     videoComposition.instructions = [mainInstruction]
     videoComposition.renderSize = renderSize
     videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+    videoComposition.animationTool = makeFinalOverlayAnimationTool(
+      renderSize: renderSize,
+      overlays: frameOverlays
+    )
 
     guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
       throw VideoCompositorException.exportCreationFailed
@@ -504,6 +525,46 @@ public final class VideoCompositorModule: Module {
     }
 
     parentLayer.addSublayer(videoLayer)
+
+    return AVVideoCompositionCoreAnimationTool(
+      postProcessingAsVideoLayer: videoLayer,
+      in: parentLayer
+    )
+  }
+
+  private func makeFinalOverlayAnimationTool(
+    renderSize: CGSize,
+    overlays: [FrameOverlayRecord]
+  ) -> AVVideoCompositionCoreAnimationTool {
+    let parentLayer = CALayer()
+    parentLayer.frame = CGRect(origin: .zero, size: renderSize)
+
+    let videoLayer = CALayer()
+    videoLayer.frame = CGRect(origin: .zero, size: renderSize)
+    parentLayer.addSublayer(videoLayer)
+
+    for overlay in overlays {
+      guard let overlayURL = try? resolveURL(from: overlay.uri) else { continue }
+      let image: UIImage?
+      if overlayURL.isFileURL {
+        image = UIImage(contentsOfFile: overlayURL.path)
+      } else if let data = try? Data(contentsOf: overlayURL) {
+        image = UIImage(data: data)
+      } else {
+        image = nil
+      }
+      guard let image else { continue }
+      let layer = CALayer()
+      layer.frame = CGRect(
+        x: overlay.x,
+        y: overlay.y,
+        width: overlay.width,
+        height: overlay.height
+      )
+      layer.contents = image.cgImage
+      layer.contentsGravity = .resize
+      parentLayer.addSublayer(layer)
+    }
 
     return AVVideoCompositionCoreAnimationTool(
       postProcessingAsVideoLayer: videoLayer,

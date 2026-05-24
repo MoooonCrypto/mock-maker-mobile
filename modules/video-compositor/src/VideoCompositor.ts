@@ -15,8 +15,16 @@ export type VideoOverlayInput = {
   cropHRatio?: number;
 };
 
+export type FrameOverlayInput = {
+  uri: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 type VideoCompositorModule = {
-  composeAsync(backgroundUri: string, overlays: VideoOverlayInput[]): Promise<string>;
+  composeAsync(backgroundUri: string, overlays: VideoOverlayInput[], frameOverlays?: FrameOverlayInput[]): Promise<string>;
 };
 
 const videoCompositorModule =

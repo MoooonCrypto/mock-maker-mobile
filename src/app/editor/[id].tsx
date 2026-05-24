@@ -23,6 +23,7 @@ import { StickerPicker } from '@/components/editor/StickerPicker';
 import { MediaCropModal } from '@/components/editor/MediaCropModal';
 import { CanvasPicker } from '@/components/editor/CanvasPicker';
 import { VideoOverlay } from '@/components/editor/VideoOverlay';
+import { FrameOverlay } from '@/components/editor/FrameOverlay';
 import { colors } from '@/constants/theme';
 import { pickImage, pickVideo } from '@/utils/media';
 import { PRO_FALLBACK_PRICE_LABEL } from '@/config/purchases';
@@ -545,6 +546,7 @@ export default function EditorScreen() {
             <>
               <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
               <VideoOverlay />
+              <FrameOverlay />
             </>
           </GestureCanvas>
         </View>

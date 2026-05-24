@@ -5,11 +5,35 @@ import type { FrameId } from '@/stores/useEditorStore';
 import type { ScreenRect } from '@/utils/layerLayout';
 import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
 
-const IPHONE_SCREEN_BOUNDS = {
+const IPHONE_TARGET_BOUNDS = {
   minX: 228,
-  minY: 216,
-  maxX: 808,
-  maxY: 1463,
+  minY: 301,
+  maxX: 834,
+  maxY: 1594,
+} as const;
+
+const IPHONE_SCREEN_ASSET_BOUNDS = {
+  minX: 228,
+  minY: 301,
+  maxX: 834,
+  maxY: 1594,
+} as const;
+
+const IPHONE_OVERLAY_HOLE_BOUNDS = {
+  minX: 217,
+  minY: 287,
+  maxX: 801,
+  maxY: 1554,
+} as const;
+
+const IPHONE_SCREEN_ASSET_SIZE = {
+  width: 1035,
+  height: 1709,
+} as const;
+
+const IPHONE_OVERLAY_ASSET_SIZE = {
+  width: 1043,
+  height: 1724,
 } as const;
 
 type Params = {
@@ -21,6 +45,8 @@ type Params = {
   pixelRatio: number;
 };
 
+const IPHONE_SCREEN_OVERSCAN = 8;
+
 export type FrameDrawRect = {
   x: number;
   y: number;
@@ -31,13 +57,15 @@ export type FrameDrawRect = {
 export type FramePresentation = {
   primary: ScreenRect | null;
   secondary: ScreenRect | null;
-  primaryFrame: FrameDrawRect | null;
-  secondaryFrame: FrameDrawRect | null;
+  primaryScreenFrame: FrameDrawRect | null;
+  secondaryScreenFrame: FrameDrawRect | null;
+  primaryOverlayFrame: FrameDrawRect | null;
+  secondaryOverlayFrame: FrameDrawRect | null;
   appIconFrame: { x: number; y: number; size: number; cornerRadius: number } | null;
 };
 
 function rectFromBounds(drawX: number, drawY: number, scale: number): ScreenRect {
-  const { minX, minY, maxX, maxY } = IPHONE_SCREEN_BOUNDS;
+  const { minX, minY, maxX, maxY } = IPHONE_TARGET_BOUNDS;
   return {
     x: drawX + minX * scale,
     y: drawY + minY * scale,
@@ -46,12 +74,46 @@ function rectFromBounds(drawX: number, drawY: number, scale: number): ScreenRect
   };
 }
 
+function mapAssetBoundsToTarget(
+  targetRect: ScreenRect,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  assetSize: { width: number; height: number }
+): FrameDrawRect {
+  const boundWidth = bounds.maxX - bounds.minX + 1;
+  const boundHeight = bounds.maxY - bounds.minY + 1;
+  const scaleX = targetRect.width / boundWidth;
+  const scaleY = targetRect.height / boundHeight;
+  return {
+    x: targetRect.x - bounds.minX * scaleX,
+    y: targetRect.y - bounds.minY * scaleY,
+    width: assetSize.width * scaleX,
+    height: assetSize.height * scaleY,
+  };
+}
+
+function expandFrameRect(frame: FrameDrawRect, amount: number): FrameDrawRect {
+  return {
+    x: frame.x - amount,
+    y: frame.y - amount,
+    width: frame.width + amount * 2,
+    height: frame.height + amount * 2,
+  };
+}
+
 export function computeFramePresentation(params: Params): FramePresentation {
   const { templateId, selectedFrameId, frameScale, framePosition, canvasPresetId, pixelRatio } = params;
   const { canvasWidth, canvasHeight } = getLogicalCanvasSize(canvasPresetId, templateId, pixelRatio);
 
   if (selectedFrameId === 'none') {
-    return { primary: null, secondary: null, primaryFrame: null, secondaryFrame: null, appIconFrame: null };
+    return {
+      primary: null,
+      secondary: null,
+      primaryScreenFrame: null,
+      secondaryScreenFrame: null,
+      primaryOverlayFrame: null,
+      secondaryOverlayFrame: null,
+      appIconFrame: null,
+    };
   }
 
   if (selectedFrameId === 'app-icon') {
@@ -61,14 +123,24 @@ export function computeFramePresentation(params: Params): FramePresentation {
     return {
       primary: { x, y, width: size, height: size },
       secondary: null,
-      primaryFrame: null,
-      secondaryFrame: null,
+      primaryScreenFrame: null,
+      secondaryScreenFrame: null,
+      primaryOverlayFrame: null,
+      secondaryOverlayFrame: null,
       appIconFrame: { x, y, size, cornerRadius: size * 0.22 },
     };
   }
 
   if (selectedFrameId !== 'iphone') {
-    return { primary: null, secondary: null, primaryFrame: null, secondaryFrame: null, appIconFrame: null };
+    return {
+      primary: null,
+      secondary: null,
+      primaryScreenFrame: null,
+      secondaryScreenFrame: null,
+      primaryOverlayFrame: null,
+      secondaryOverlayFrame: null,
+      appIconFrame: null,
+    };
   }
 
   if (templateId === 'double') {
@@ -81,11 +153,15 @@ export function computeFramePresentation(params: Params): FramePresentation {
     const rightDrawX = halfWidth + (halfWidth - drawWidth) / 2 + framePosition.x;
     const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
 
+    const primary = rectFromBounds(leftDrawX, drawY, scale);
+    const secondary = rectFromBounds(rightDrawX, drawY, scale);
     return {
-      primary: rectFromBounds(leftDrawX, drawY, scale),
-      secondary: rectFromBounds(rightDrawX, drawY, scale),
-      primaryFrame: { x: leftDrawX, y: drawY, width: drawWidth, height: drawHeight },
-      secondaryFrame: { x: rightDrawX, y: drawY, width: drawWidth, height: drawHeight },
+      primary,
+      secondary,
+      primaryScreenFrame: expandFrameRect(mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE), IPHONE_SCREEN_OVERSCAN),
+      secondaryScreenFrame: expandFrameRect(mapAssetBoundsToTarget(secondary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE), IPHONE_SCREEN_OVERSCAN),
+      primaryOverlayFrame: mapAssetBoundsToTarget(primary, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+      secondaryOverlayFrame: mapAssetBoundsToTarget(secondary, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
       appIconFrame: null,
     };
   }
@@ -111,11 +187,14 @@ export function computeFramePresentation(params: Params): FramePresentation {
       ? framePosition.y
       : canvasHeight - drawHeight * visibleFraction + framePosition.y;
 
+    const primary = rectFromBounds(drawX, drawY, scale);
     return {
-      primary: rectFromBounds(drawX, drawY, scale),
+      primary,
       secondary: null,
-      primaryFrame: { x: drawX, y: drawY, width: drawWidth, height: drawHeight },
-      secondaryFrame: null,
+      primaryScreenFrame: expandFrameRect(mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE), IPHONE_SCREEN_OVERSCAN),
+      secondaryScreenFrame: null,
+      primaryOverlayFrame: mapAssetBoundsToTarget(primary, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+      secondaryOverlayFrame: null,
       appIconFrame: null,
     };
   }
@@ -127,11 +206,14 @@ export function computeFramePresentation(params: Params): FramePresentation {
   const drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
   const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
 
+  const primary = rectFromBounds(drawX, drawY, scale);
   return {
-    primary: rectFromBounds(drawX, drawY, scale),
+    primary,
     secondary: null,
-    primaryFrame: { x: drawX, y: drawY, width: drawWidth, height: drawHeight },
-    secondaryFrame: null,
+    primaryScreenFrame: expandFrameRect(mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE), IPHONE_SCREEN_OVERSCAN),
+    secondaryScreenFrame: null,
+    primaryOverlayFrame: mapAssetBoundsToTarget(primary, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+    secondaryOverlayFrame: null,
     appIconFrame: null,
   };
 }

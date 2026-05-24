@@ -2,7 +2,7 @@ import type { CanvasPresetId } from '@/constants/canvasPresets';
 import type { TemplateId } from '@/constants/templates';
 import type { Layer } from '@/types';
 import type { FrameId } from '@/stores/useEditorStore';
-import { computeFrameScreenRects } from '@/utils/frameRects';
+import { computeFramePresentation } from '@/utils/frameRects';
 import { getActiveScreenRect, getFreeformMediaRect, type ScreenRect } from '@/utils/layerLayout';
 import { computeCropRatios, computeFramedMediaDrawRect, createFullMediaCrop, hasMediaCrop, type MediaCrop } from '@/utils/mediaCrop';
 
@@ -51,7 +51,7 @@ export function buildMediaScene({
   canvasWidth,
   canvasHeight,
 }: BuildMediaSceneParams): MediaSceneLayer[] {
-  const frameRects = computeFrameScreenRects({
+  const framePresentation = computeFramePresentation({
     templateId,
     selectedFrameId,
     frameScale,
@@ -63,7 +63,7 @@ export function buildMediaScene({
   return layers
     .filter((layer): layer is Layer & { type: 'image' | 'video' } => layer.type === 'image' || layer.type === 'video')
     .map((layer, order) => {
-      const activeScreenRect = getActiveScreenRect(layer, frameRects.primary, frameRects.secondary);
+      const activeScreenRect = getActiveScreenRect(layer, framePresentation.primary, framePresentation.secondary);
       const sourceWidth = Math.max(layer.size.width || 1, 1);
       const sourceHeight = Math.max(layer.size.height || 1, 1);
       const sourceCrop = activeScreenRect && hasMediaCrop(layer)
