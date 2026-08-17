@@ -30,6 +30,19 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# local agent/debug workspace
+.serena/
+ToLLM/
+
+# build/test outputs
+coverage/
+*.ipa
+*.apk
+*.aab
+*.xcarchive
+DerivedData/
+build-*.ipa
+
 # local env files
 .env
 .env.*
@@ -42,6 +55,3 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-
-# local iOS build artifacts
-build-*.ipa

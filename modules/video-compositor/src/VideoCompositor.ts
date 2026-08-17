@@ -6,6 +6,10 @@ export type VideoOverlayInput = {
   y: number;
   width: number;
   height: number;
+  drawX: number;
+  drawY: number;
+  drawWidth: number;
+  drawHeight: number;
   cornerRadius: number;
   zIndex: number;
   order: number;

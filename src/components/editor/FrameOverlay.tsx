@@ -11,13 +11,14 @@ import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
 
 const FRAME_IMAGE_IPHONE_OVERLAY = require('../../../assets/frame_1_ver4.png');
 
-export function FrameOverlay() {
+export function FrameOverlay({ frameScaleOverride }: { frameScaleOverride?: number }) {
   const templateId = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const selectedFrameId = useEditorStore((s) => s.selectedFrameId);
-  const frameScale = useEditorStore((s) => s.frameScale);
+  const frameScaleStore = useEditorStore((s) => s.frameScale);
   const framePosition = useEditorStore((s) => s.framePosition);
   const hasVideoLayers = useEditorStore((s) => s.layers.some((layer) => layer.type === 'video'));
+  const frameScale = frameScaleOverride ?? frameScaleStore;
   const pixelRatio = PixelRatio.get();
   const { canvasWidth, canvasHeight } = getLogicalCanvasSize(canvasPresetId, templateId, pixelRatio);
   const frameImage = useImage(FRAME_IMAGE_IPHONE_OVERLAY);

@@ -33,9 +33,9 @@ export function getPreset(id: CanvasPresetId): CanvasPreset {
   return CANVAS_PRESETS.find(p => p.id === id)!
 }
 
-// iPhone screen-frame asset pixel dimensions (frame_2_ver3.png: 1035×1709)
-export const FRAME_IMG_W = 1035
-export const FRAME_IMG_H = 1709
+// iPhone front-frame asset pixel dimensions (frame_1_ver4.png: 1043×1724)
+export const FRAME_IMG_W = 1043
+export const FRAME_IMG_H = 1724
 
 /**
  * Calculate max frameScale that keeps the iPhone frame fully within the canvas height.

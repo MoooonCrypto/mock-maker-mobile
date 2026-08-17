@@ -45,14 +45,15 @@ function VideoLayerView({
   );
 }
 
-export function VideoOverlay() {
+export function VideoOverlay({ frameScaleOverride }: { frameScaleOverride?: number }) {
   const templateId = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const layers = useEditorStore((s) => s.layers);
   const selectedLayerId = useEditorStore((s) => s.selectedLayerId);
   const selectedFrameId = useEditorStore((s) => s.selectedFrameId);
-  const frameScale = useEditorStore((s) => s.frameScale);
+  const frameScaleStore = useEditorStore((s) => s.frameScale);
   const framePosition = useEditorStore((s) => s.framePosition);
+  const frameScale = frameScaleOverride ?? frameScaleStore;
 
   const pixelRatio = PixelRatio.get();
   const { canvasWidth, canvasHeight } = getLogicalCanvasSize(canvasPresetId, templateId, pixelRatio);

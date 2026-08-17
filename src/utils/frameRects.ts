@@ -5,13 +5,6 @@ import type { FrameId } from '@/stores/useEditorStore';
 import type { ScreenRect } from '@/utils/layerLayout';
 import { getLogicalCanvasSize } from '@/utils/canvasMetrics';
 
-const IPHONE_TARGET_BOUNDS = {
-  minX: 228,
-  minY: 301,
-  maxX: 834,
-  maxY: 1594,
-} as const;
-
 const IPHONE_SCREEN_ASSET_BOUNDS = {
   minX: 228,
   minY: 301,
@@ -63,7 +56,7 @@ export type FramePresentation = {
 };
 
 function rectFromBounds(drawX: number, drawY: number, scale: number): ScreenRect {
-  const { minX, minY, maxX, maxY } = IPHONE_TARGET_BOUNDS;
+  const { minX, minY, maxX, maxY } = IPHONE_OVERLAY_HOLE_BOUNDS;
   return {
     x: drawX + minX * scale,
     y: drawY + minY * scale,
@@ -87,49 +80,6 @@ function mapAssetBoundsToTarget(
     width: assetSize.width * scaleX,
     height: assetSize.height * scaleY,
   };
-}
-
-function mapVisibleBoundsFromFrame(
-  frame: FrameDrawRect,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  assetSize: { width: number; height: number }
-): ScreenRect {
-  const scaleX = frame.width / assetSize.width;
-  const scaleY = frame.height / assetSize.height;
-  return {
-    x: frame.x + bounds.minX * scaleX,
-    y: frame.y + bounds.minY * scaleY,
-    width: (bounds.maxX - bounds.minX + 1) * scaleX,
-    height: (bounds.maxY - bounds.minY + 1) * scaleY,
-  };
-}
-
-function intersectRects(a: ScreenRect, b: ScreenRect): ScreenRect {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  const right = Math.min(a.x + a.width, b.x + b.width);
-  const bottom = Math.min(a.y + a.height, b.y + b.height);
-  return {
-    x,
-    y,
-    width: Math.max(0, right - x),
-    height: Math.max(0, bottom - y),
-  };
-}
-
-function expandFrameRect(frame: FrameDrawRect, amount: number): FrameDrawRect {
-  return {
-    x: frame.x - amount,
-    y: frame.y - amount,
-    width: frame.width + amount * 2,
-    height: frame.height + amount * 2,
-  };
-}
-
-function getScreenOverscan(targetRect: ScreenRect): number {
-  // Scale the white-screen expansion with the actual displayed screen width.
-  // This keeps single close to the current look while reducing overscan in double/split.
-  return Math.max(0, Math.round(targetRect.width * 0.027));
 }
 
 export function computeFramePresentation(params: Params): FramePresentation {
@@ -185,31 +135,17 @@ export function computeFramePresentation(params: Params): FramePresentation {
     const rightDrawX = halfWidth + (halfWidth - drawWidth) / 2 + framePosition.x;
     const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
 
-    const primaryBase = rectFromBounds(leftDrawX, drawY, scale);
-    const secondaryBase = rectFromBounds(rightDrawX, drawY, scale);
-    const primaryScreenFrame = expandFrameRect(
-      mapAssetBoundsToTarget(primaryBase, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      getScreenOverscan(primaryBase)
-    );
-    const secondaryScreenFrame = expandFrameRect(
-      mapAssetBoundsToTarget(secondaryBase, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      getScreenOverscan(secondaryBase)
-    );
-    const primary = intersectRects(
-      mapVisibleBoundsFromFrame(primaryScreenFrame, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      primaryBase
-    );
-    const secondary = intersectRects(
-      mapVisibleBoundsFromFrame(secondaryScreenFrame, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      secondaryBase
-    );
+    const primaryOverlayFrame = { x: leftDrawX, y: drawY, width: drawWidth, height: drawHeight };
+    const secondaryOverlayFrame = { x: rightDrawX, y: drawY, width: drawWidth, height: drawHeight };
+    const primary = rectFromBounds(leftDrawX, drawY, scale);
+    const secondary = rectFromBounds(rightDrawX, drawY, scale);
     return {
       primary,
       secondary,
-      primaryScreenFrame,
-      secondaryScreenFrame,
-      primaryOverlayFrame: mapAssetBoundsToTarget(primaryBase, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
-      secondaryOverlayFrame: mapAssetBoundsToTarget(secondaryBase, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+      primaryScreenFrame: mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
+      secondaryScreenFrame: mapAssetBoundsToTarget(secondary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
+      primaryOverlayFrame,
+      secondaryOverlayFrame,
       appIconFrame: null,
     };
   }
@@ -235,21 +171,14 @@ export function computeFramePresentation(params: Params): FramePresentation {
       ? framePosition.y
       : canvasHeight - drawHeight * visibleFraction + framePosition.y;
 
-    const primaryBase = rectFromBounds(drawX, drawY, scale);
-    const primaryScreenFrame = expandFrameRect(
-      mapAssetBoundsToTarget(primaryBase, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      getScreenOverscan(primaryBase)
-    );
-    const primary = intersectRects(
-      mapVisibleBoundsFromFrame(primaryScreenFrame, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-      primaryBase
-    );
+    const primaryOverlayFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
+    const primary = rectFromBounds(drawX, drawY, scale);
     return {
       primary,
       secondary: null,
-      primaryScreenFrame,
+      primaryScreenFrame: mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
       secondaryScreenFrame: null,
-      primaryOverlayFrame: mapAssetBoundsToTarget(primaryBase, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+      primaryOverlayFrame,
       secondaryOverlayFrame: null,
       appIconFrame: null,
     };
@@ -262,21 +191,14 @@ export function computeFramePresentation(params: Params): FramePresentation {
   const drawX = (canvasWidth - drawWidth) / 2 + framePosition.x;
   const drawY = (canvasHeight - drawHeight) / 2 + framePosition.y;
 
-  const primaryBase = rectFromBounds(drawX, drawY, scale);
-  const primaryScreenFrame = expandFrameRect(
-    mapAssetBoundsToTarget(primaryBase, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-    getScreenOverscan(primaryBase)
-  );
-  const primary = intersectRects(
-    mapVisibleBoundsFromFrame(primaryScreenFrame, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
-    primaryBase
-  );
+  const primaryOverlayFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
+  const primary = rectFromBounds(drawX, drawY, scale);
   return {
     primary,
     secondary: null,
-    primaryScreenFrame,
+    primaryScreenFrame: mapAssetBoundsToTarget(primary, IPHONE_SCREEN_ASSET_BOUNDS, IPHONE_SCREEN_ASSET_SIZE),
     secondaryScreenFrame: null,
-    primaryOverlayFrame: mapAssetBoundsToTarget(primaryBase, IPHONE_OVERLAY_HOLE_BOUNDS, IPHONE_OVERLAY_ASSET_SIZE),
+    primaryOverlayFrame,
     secondaryOverlayFrame: null,
     appIconFrame: null,
   };

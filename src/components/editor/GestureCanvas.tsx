@@ -17,9 +17,10 @@ interface Props {
   frameDragX:  SharedValue<number>;
   frameDragY:  SharedValue<number>;
   framePinchS: SharedValue<number>;
+  frameScaleOverride?: number;
 }
 
-export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: Props) {
+export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS, frameScaleOverride }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const templateId     = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
@@ -37,8 +38,9 @@ export function GestureCanvas({ children, canvasAreaH, dragOffsetX, dragOffsetY,
   const activeTool      = useEditorStore((s) => s.activeTool);
   const framePosition   = useEditorStore((s) => s.framePosition);
   const setFramePosition = useEditorStore((s) => s.setFramePosition);
-  const frameScale      = useEditorStore((s) => s.frameScale);
+  const frameScaleStore = useEditorStore((s) => s.frameScale);
   const setFrameScale   = useEditorStore((s) => s.setFrameScale);
+  const frameScale      = frameScaleOverride ?? frameScaleStore;
 
   // Sync JS values → SharedValues so worklets can read them
   const selectedIdSV  = useSharedValue(selectedLayerId ?? '');

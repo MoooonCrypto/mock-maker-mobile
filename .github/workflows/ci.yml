@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      EXPO_NO_TELEMETRY: 1
+      EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY: ci_mock_revenuecat_apple_key
+      EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY: ci_mock_revenuecat_google_key
+      EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build

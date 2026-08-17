@@ -118,9 +118,10 @@ interface CanvasProps {
   frameDragX:  SharedValue<number>;
   frameDragY:  SharedValue<number>;
   framePinchS: SharedValue<number>;
+  frameScaleOverride?: number;
 }
 
-export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS }: CanvasProps) {
+export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frameDragY, framePinchS, frameScaleOverride }: CanvasProps) {
   const templateId = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const pixelRatio = PixelRatio.get();
@@ -156,8 +157,9 @@ export function Canvas({ dragOffsetX, dragOffsetY, pinchScale, frameDragX, frame
   const layers             = useEditorStore((s) => s.layers);
   const selectedFrameId    = useEditorStore((s) => s.selectedFrameId);
   const selectedLayerId    = useEditorStore((s) => s.selectedLayerId);
-  const frameScale         = useEditorStore((s) => s.frameScale);
+  const frameScaleStore    = useEditorStore((s) => s.frameScale);
   const framePosition      = useEditorStore((s) => s.framePosition);
+  const frameScale         = frameScaleOverride ?? frameScaleStore;
 
   const frameOverlayImage = useImage(FRAME_IMAGE_IPHONE_OVERLAY);
   const frameScreenImage = useImage(FRAME_IMAGE_IPHONE_SCREEN);

@@ -167,8 +167,8 @@ export default function ExportScreen() {
     if (videoLayers.length === 0) {
       throw new Error(t('editor.errVideoExportMissing'));
     }
-    if (templateId === 'split') {
-      throw new Error(t('editor.errVideoSplitUnsupported'));
+    if (templateId !== 'single' && templateId !== 'double') {
+      throw new Error(templateId === 'split' ? t('editor.errVideoSplitUnsupported') : t('editor.errVideoTemplateUnsupported'));
     }
 
     cleanupStaleExportCache();
@@ -213,6 +213,10 @@ export default function ExportScreen() {
           y: item.targetRect.y * scaleY,
           width: item.targetRect.width * scaleX,
           height: item.targetRect.height * scaleY,
+          drawX: item.drawRect.x * scaleX,
+          drawY: item.drawRect.y * scaleY,
+          drawWidth: item.drawRect.width * scaleX,
+          drawHeight: item.drawRect.height * scaleY,
           cornerRadius: item.cornerRadius * scaleX,
           zIndex: item.layer.zIndex,
           order: item.order,

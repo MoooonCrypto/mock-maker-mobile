@@ -9,6 +9,8 @@
     "ios": "expo run:ios",
     "ios:dev-client": "EXPO_USE_DEV_CLIENT=1 expo run:ios",
     "web": "expo start --web",
+    "build": "expo export --platform ios --output-dir dist",
+    "typecheck": "tsc --noEmit",
     "postinstall": "patch-package"
   },
   "dependencies": {

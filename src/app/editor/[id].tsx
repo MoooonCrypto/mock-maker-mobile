@@ -42,21 +42,30 @@ const MAX_VIDEO_DURATION_MS = 2 * 60 * 1000;
 
 // ─── Shared slider hook ───────────────────────────────────────────────────────
 
-function useSliderPanResponder(onChange: (ratio: number) => void) {
+function useSliderPanResponder(onChange: (ratio: number) => void, onEnd?: (ratio: number) => void) {
   const trackWRef = useRef(300);
   const viewPageXRef = useRef(0);
   const trackViewRef = useRef<any>(null);
+  const ratioRef = useRef(0);
 
   const pr = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
       const r = Math.max(0, Math.min(1, (e.nativeEvent.pageX - viewPageXRef.current) / trackWRef.current));
+      ratioRef.current = r;
       onChange(r);
     },
     onPanResponderMove: (e) => {
       const r = Math.max(0, Math.min(1, (e.nativeEvent.pageX - viewPageXRef.current) / trackWRef.current));
+      ratioRef.current = r;
       onChange(r);
+    },
+    onPanResponderRelease: () => {
+      onEnd?.(ratioRef.current);
+    },
+    onPanResponderTerminate: () => {
+      onEnd?.(ratioRef.current);
     },
   })).current;
 
@@ -72,8 +81,15 @@ function useSliderPanResponder(onChange: (ratio: number) => void) {
 
 // ─── Frame size slider panel ──────────────────────────────────────────────────
 
-function FrameSizePanel() {
-  const frameScale = useEditorStore((s) => s.frameScale);
+function FrameSizePanel({
+  frameScale,
+  onPreviewChange,
+  onCommit,
+}: {
+  frameScale: number;
+  onPreviewChange: (scale: number) => void;
+  onCommit: (scale: number) => void;
+}) {
   const templateId = useEditorStore((s) => s.templateId);
   const canvasPresetId = useEditorStore((s) => s.canvasPresetId);
   const [trackW, setTrackW] = useState(300);
@@ -82,17 +98,30 @@ function FrameSizePanel() {
   const minScale = 0.3;
   const maxScale = getMaxFrameScale(canvasLogW, canvasLogH, templateId);
   const scaleRange = Math.max(maxScale - minScale, 0.001);
+  const [draftScale, setDraftScale] = useState(frameScale);
 
-  const { pr, trackViewRef, onLayout } = useSliderPanResponder((r) => {
-    useEditorStore.getState().setFrameScale(minScale + r * scaleRange);
-  });
+  useEffect(() => {
+    setDraftScale(frameScale);
+  }, [frameScale]);
 
-  const pct = Math.max(0, Math.min(1, (frameScale - minScale) / scaleRange));
+  const { pr, trackViewRef, onLayout } = useSliderPanResponder(
+    (r) => {
+      const nextScale = minScale + r * scaleRange;
+      setDraftScale(nextScale);
+      onPreviewChange(nextScale);
+    },
+    (r) => {
+      const nextScale = minScale + r * scaleRange;
+      onCommit(nextScale);
+    }
+  );
+
+  const pct = Math.max(0, Math.min(1, (draftScale - minScale) / scaleRange));
 
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: '#e5e7eb' }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 }}>
-        {t('editor.frameSizeLabel', { pct: Math.round(Math.min(frameScale, maxScale) * 100) })}
+        {t('editor.frameSizeLabel', { pct: Math.round(Math.min(draftScale, maxScale) * 100) })}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Text style={{ fontSize: 11, color: '#9ca3af' }}>{t('editor.frameSizeSmall')}</Text>
@@ -217,6 +246,7 @@ export default function EditorScreen() {
   const [proPromptVisible, setProPromptVisible] = useState(false);
   const [projectNameInput, setProjectNameInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [previewFrameScale, setPreviewFrameScale] = useState<number | null>(null);
 
   const [cropPending, setCropPending] = useState<{
     type: 'image' | 'video'; uri: string; width: number; height: number; frameSlot?: 0 | 1; durationMs?: number;
@@ -284,6 +314,12 @@ export default function EditorScreen() {
   useEffect(() => {
     return () => reset();
   }, [id, reset]);
+
+  useEffect(() => {
+    if (previewFrameScale !== null && Math.abs(previewFrameScale - frameScale) < 0.0001) {
+      setPreviewFrameScale(null);
+    }
+  }, [frameScale, previewFrameScale]);
 
   // ─── Export ────────────────────────────────────────────────────────────────
 
@@ -414,6 +450,10 @@ export default function EditorScreen() {
 
   const pickVideoForSlot = async (slot: 0 | 1) => {
     try {
+      if (templateId !== 'single' && templateId !== 'double') {
+        Alert.alert(t('editor.errTitle'), t('editor.errVideoTemplateUnsupported'));
+        return;
+      }
       const asset = await pickVideo();
       if (!asset) return;
       if (asset.durationMs != null && asset.durationMs > MAX_VIDEO_DURATION_MS) {
@@ -436,13 +476,6 @@ export default function EditorScreen() {
       const layer = createDefaultLayer('video', asset.uri, { width: asset.width, height: asset.height });
       const nextLayer = { ...layer, frameSlot: frameEnabled ? slot : undefined, durationMs: asset.durationMs };
 
-      if (templateId === 'free') {
-        const mediaCount = layers.filter((existingLayer) => existingLayer.type === 'image' || existingLayer.type === 'video').length;
-        const offset = freeTemplateImageOffset(mediaCount);
-        addLayer({ ...nextLayer, position: offset });
-        return;
-      }
-
       addLayer(nextLayer);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -451,8 +484,11 @@ export default function EditorScreen() {
   };
 
   const selectSlotAndPick = (kind: 'image' | 'video') => {
-    if (kind === 'video' && templateId === 'split') {
-      Alert.alert(t('editor.errTitle'), t('editor.errVideoSplitUnsupported'));
+    if (kind === 'video' && templateId !== 'single' && templateId !== 'double') {
+      Alert.alert(
+        t('editor.errTitle'),
+        templateId === 'split' ? t('editor.errVideoSplitUnsupported') : t('editor.errVideoTemplateUnsupported')
+      );
       return;
     }
 
@@ -475,6 +511,16 @@ export default function EditorScreen() {
   const handleMediaPick = () => {
     if (templateId === 'split') {
       selectSlotAndPick('image');
+      return;
+    }
+
+    if (templateId !== 'single' && templateId !== 'double') {
+      const actions = [
+        { text: t('editor.mediaPickImage'), onPress: () => selectSlotAndPick('image') },
+        { text: t('editor.exportCancel'), style: 'cancel' as const },
+      ];
+
+      Alert.alert(t('editor.mediaPickTitle'), t('editor.mediaPickMessage'), actions);
       return;
     }
 
@@ -504,10 +550,12 @@ export default function EditorScreen() {
     setCropPending(null);
   };
 
+  const effectiveFrameScale = previewFrameScale ?? frameScale;
+
   const cropFrameRects = computeFrameScreenRects({
     templateId,
     selectedFrameId,
-    frameScale,
+    frameScale: effectiveFrameScale,
     framePosition,
     canvasPresetId,
     pixelRatio: PixelRatio.get(),
@@ -549,11 +597,11 @@ export default function EditorScreen() {
       {/* Canvas area */}
       <View style={{ flex: 1, backgroundColor: '#d1d5db' }} onLayout={(e) => setCanvasAreaH(e.nativeEvent.layout.height)}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <GestureCanvas canvasAreaH={canvasAreaH} dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS}>
+          <GestureCanvas canvasAreaH={canvasAreaH} dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} frameScaleOverride={effectiveFrameScale}>
             <>
-              <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} />
-              <VideoOverlay />
-              <FrameOverlay />
+              <Canvas dragOffsetX={dragOffsetX} dragOffsetY={dragOffsetY} pinchScale={pinchScale} frameDragX={frameDragX} frameDragY={frameDragY} framePinchS={framePinchS} frameScaleOverride={effectiveFrameScale} />
+              <VideoOverlay frameScaleOverride={effectiveFrameScale} />
+              <FrameOverlay frameScaleOverride={effectiveFrameScale} />
             </>
           </GestureCanvas>
         </View>
@@ -568,7 +616,16 @@ export default function EditorScreen() {
 
       {/* Bottom controls */}
       <View style={{ backgroundColor: 'white' }}>
-        {activeTool === 'frame' && <FrameSizePanel />}
+        {activeTool === 'frame' && (
+          <FrameSizePanel
+            frameScale={effectiveFrameScale}
+            onPreviewChange={setPreviewFrameScale}
+            onCommit={(nextScale) => {
+              setPreviewFrameScale(nextScale);
+              useEditorStore.getState().setFrameScale(nextScale);
+            }}
+          />
+        )}
         {activeTool === 'frame' && templateId === 'split' && <SplitPositionPanel />}
         {activeTool === 'background' && <BackgroundPicker />}
         {activeTool === 'sticker'    && <StickerPicker />}
