@@ -1,20 +1,12 @@
-# MockMaker Mobile
+# MockMaker
+
+## 概要
 
 MockMaker Mobile は、iPhoneアプリのスクリーンショットや短い動画を使って、App Store掲載用・SNS投稿用のモックアップを作るiOSアプリです。
 
 Expo/React Nativeで作っていますが、見た目の核になるキャンバス描画と動画書き出しはかなりネイティブ寄りです。画像はSkiaで描画し、動画はiOSのローカルExpo moduleで合成しています。
 
-## Demo / Screenshots
-
-READMEに載せるスクリーンショットと短いデモ動画は、公開前に追加します。最低限、以下の画面を載せる想定です。
-
-- ホームのテンプレート選択
-- エディターでの画像配置
-- `single` / `double` の動画プレビュー
-- 書き出し画面
-- 出力されたモックアップ例
-
-## Features
+## 機能
 
 - iPhone 1台、2台並び、上部クロップ、スプリット、アイコン、自由配置テンプレート
 - 画像、動画、テキスト、ステッカーのレイヤー編集
@@ -25,7 +17,7 @@ READMEに載せるスクリーンショットと短いデモ動画は、公開�
 - RevenueCatを使ったPro買い切り状態の管理
 - Proユーザー向けの端末内プロジェクト保存
 
-## Tech Stack
+## 技術スタック
 
 - Expo SDK 54
 - React Native 0.81
@@ -41,15 +33,15 @@ READMEに載せるスクリーンショットと短いデモ動画は、公開�
 - NativeWind / Tailwind CSS
 - EAS Build / Submit
 
-## Architecture / Implementation Notes
+## 設計・実装
 
 画像書き出しはSkia canvasのsnapshotをPNG/JPGにエンコードしています。
 
 動画はReact Nativeのviewをそのまま録画するのではなく、プレビューとexportで同じscene情報を使う構成にしています。`src/utils/mediaScene.ts` でmediaの表示領域、実際の描画領域、crop情報を作り、iOS側の `modules/video-compositor` に渡してMP4を書き出します。
 
-動画exportは現時点では `single` と `double` を対象にしています。`split`, `top-half`, `free` の動画対応は完成機能としては扱っていません。
+動画exportは `single` と `double` を対象にしています。`split`, `top-half`, `free` は画像書き出し向けのテンプレートとして扱っています。
 
-## Getting Started
+## セットアップ
 
 ```bash
 npm ci
@@ -71,7 +63,7 @@ npm run start:dev-client
 
 Expo Goでは確認できません。Skia、RevenueCat、Google Mobile Ads、ローカルExpo moduleを使っているため、Development Buildが必要です。
 
-## Environment Variables
+環境変数は `.env.example` をもとに設定します。
 
 ```env
 EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY=
@@ -81,7 +73,7 @@ EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro
 
 RevenueCatのキーは公開SDKキーを使います。secret keyは入れません。
 
-## Scripts
+利用する主なscriptは以下です。
 
 ```bash
 npm run start
@@ -90,28 +82,21 @@ npm run ios
 npm run ios:dev-client
 npm run android
 npm run web
+npm run build
 npm run typecheck
 ```
 
-## EAS
+CIでは `npm ci`, `npx tsc --noEmit`, `npm run build` を実行します。`npm run build` は `expo export --platform ios` によるiOS向けJavaScript bundle生成の確認です。
 
-`eas.json` には `development`, `development-simulator`, `preview`, `production` のbuild profileがあります。App Store Connectへの提出は `production` submit profileを使う想定です。
+## その他
+
+`eas.json` には `development`, `development-simulator`, `preview`, `production` のbuild profileがあります。App Store Connectへの提出は `production` submit profileを使います。
 
 ```bash
 eas build --platform ios --profile production
 eas submit --platform ios --profile production
 ```
 
-## Development Notes
-
 - `ios/` と `android/` はExpo prebuild由来の生成フォルダとしてGit管理外にしています。
 - 動画exportの重点確認項目は `docs/testing/video-export-rebuild-gate.md` にまとめています。
 - Pro機能の設定手順は `docs/ios-pro-plan-setup.md` にあります。
-
-## Future Improvements
-
-- README用のスクリーンショットと短いデモ動画の追加
-- 動画exportの自動テストまたは比較用fixture整備
-- `top-half` / `free` など、未対応テンプレートへの動画export拡張
-- lint / format の導入
-- Android向け動画exportの方針整理

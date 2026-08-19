@@ -31,8 +31,12 @@ yarn-error.*
 *.pem
 
 # local agent/debug workspace
+.claude/
 .serena/
 ToLLM/
+
+# local rejected/reference assets
+assets/ぼつ/
 
 # build/test outputs
 coverage/

@@ -45,7 +45,7 @@ MockMaker Mobile は、iPhoneフレームを使ったアプリ紹介用モック
 
 座標の真実は `src/utils/mediaScene.ts` の `buildMediaScene()` に寄せています。プレビューとexportで同じ `targetRect`, `drawRect`, crop情報を使うことで、見た目のズレを減らす設計です。
 
-現在、動画書き出しの対象は `single` と `double` に限定しています。`split`, `top-half`, `free` では動画選択/動画書き出しを完成機能として扱っていません。
+現在、動画書き出しの対象は `single` と `double` に限定しています。`split`, `top-half`, `free` は画像書き出し向けのテンプレートとして扱っています。
 
 ### Pro機能
 
