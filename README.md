@@ -2,9 +2,9 @@
 
 ## 概要
 
-MockMaker Mobile は、iPhoneアプリのスクリーンショットや短い動画を使って、App Store掲載用・SNS投稿用のモックアップを作るiOSアプリです。
+MockMaker は、iPhoneアプリのスクリーンショットや短い動画を使って、App Store掲載用・SNS投稿用のモックアップを作るiOSアプリです。
 
-Expo/React Nativeで作っていますが、見た目の核になるキャンバス描画と動画書き出しはかなりネイティブ寄りです。画像はSkiaで描画し、動画はiOSのローカルExpo moduleで合成しています。
+UIはExpo/React Native、画像描画はSkia、動画書き出しはiOSのローカルExpo moduleで実装しています。
 
 ## 機能
 
@@ -49,21 +49,7 @@ cp .env.example .env
 npm run typecheck
 ```
 
-Development Buildで起動します。
-
-```bash
-npm run ios:dev-client
-```
-
-すでにDev Clientが端末に入っている場合は、Metroだけ起動できます。
-
-```bash
-npm run start:dev-client
-```
-
-Expo Goでは確認できません。Skia、RevenueCat、Google Mobile Ads、ローカルExpo moduleを使っているため、Development Buildが必要です。
-
-環境変数は `.env.example` をもとに設定します。
+RevenueCatを有効にして動かす場合は、`.env` に以下を設定します。
 
 ```env
 EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY=
@@ -71,32 +57,28 @@ EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY=
 EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro
 ```
 
-RevenueCatのキーは公開SDKキーを使います。secret keyは入れません。
-
-利用する主なscriptは以下です。
-
 ```bash
-npm run start
-npm run start:dev-client
-npm run ios
 npm run ios:dev-client
-npm run android
-npm run web
-npm run build
-npm run typecheck
 ```
 
-CIでは `npm ci`, `npx tsc --noEmit`, `npm run build` を実行します。`npm run build` は `expo export --platform ios` によるiOS向けJavaScript bundle生成の確認です。
+Dev Clientが入っている端末ではMetroだけ起動します。
+
+```bash
+npm run start:dev-client
+```
+
+Expo Goは対象外です。
+
+CIは `npm ci`, `npx tsc --noEmit`, `npm run build` を実行します。`npm run build` はiOS向けJS bundleの生成確認です。
 
 ## その他
 
-`eas.json` には `development`, `development-simulator`, `preview`, `production` のbuild profileがあります。App Store Connectへの提出は `production` submit profileを使います。
+EASのprofileは `eas.json` に定義しています。
 
 ```bash
 eas build --platform ios --profile production
 eas submit --platform ios --profile production
 ```
 
-- `ios/` と `android/` はExpo prebuild由来の生成フォルダとしてGit管理外にしています。
-- 動画exportの重点確認項目は `docs/testing/video-export-rebuild-gate.md` にまとめています。
-- Pro機能の設定手順は `docs/ios-pro-plan-setup.md` にあります。
+- 動画exportの確認観点: `docs/testing/video-export-rebuild-gate.md`
+- Pro / RevenueCat設定: `docs/ios-pro-plan-setup.md`
