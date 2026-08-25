@@ -6,6 +6,20 @@ MockMaker は、iPhoneアプリのスクリーンショットや短い動画を�
 
 UIはExpo/React Native、画像描画はSkia、動画書き出しはiOSのローカルExpo moduleで実装しています。
 
+<p align="center">
+  <img src="./docs/images/1.PNG" alt="MockMaker preview 1" width="360"><br>
+  <img src="./docs/images/2.PNG" alt="MockMaker preview 2" width="360">
+</p>
+
+<!--
+動画ファイルをリポジトリに追加した場合は、次のようにGitHub上のソースから参照できます。
+GitHub READMEでvideoタグが表示されない環境では、サムネイル画像から動画ファイルへリンクしてください。
+
+<video src="./assets/demo.mp4" controls width="360"></video>
+
+[![MockMaker demo](./docs/images/1.PNG)](./assets/demo.mp4)
+-->
+
 ## 機能
 
 - iPhone 1台、2台並び、上部クロップ、スプリット、アイコン、自由配置テンプレート
